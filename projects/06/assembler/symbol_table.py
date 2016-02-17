@@ -6,7 +6,7 @@ contains(symbol)
 get_address(symbol)
 """
 
-class Symbol_Table:
+class SymbolTable:
 
 def __init__(self):
     """Constructor
@@ -44,7 +44,7 @@ def get_address(self, symbol):
     symbol (string) - Symbol whose adddress to retreive.
 
     Returns
-    The address that the symbol maps to.
+    address (int) - The address that the symbol maps to.
     """
 
     return self.address_map[symbol]

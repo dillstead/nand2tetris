@@ -103,5 +103,27 @@ def jmp(mnemonic):
     else
         return "111"
 
+def to_binary(address):
+    """Takes a decimal address and converts it to a 15-bit binary string.
+    0 -> "OOOOOOOOOOOOOOO"
+    1 -> "OOOOOOOOOOOOOO1"
+    ...
+    8 -> "OOOOOOOOOOO1000"
+    
+    Arguments
+    symbol (int) - Decimal symbol.
+
+    Returns
+    binary (string) - 15-bit binary string equivalent of address.
+    """
+
+    binary = "000000000000000"
+    pos = 14
+    while address > 0:
+        binary[pos] = str(address % 2)
+        address /= 2
+    return binary
+
+
 
 

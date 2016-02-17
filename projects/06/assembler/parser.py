@@ -22,7 +22,7 @@ def __init__(self, input_fname):
     Arguments
     input_fname (string) - Name of input file containing assembly code.
     """
-    self.fin = open(input_fname)
+    self.fin = open(input_fname, "r")
 
 def has_more_commands(self):
     """Checks to see if more commands are available.
@@ -55,6 +55,9 @@ def advance(self):
         self.command_type = C_COMMAND
         _parse_c_command()
 
+def command_type(self):
+    return self.command_type
+
 def symbol(self):
     return self.symbol
 
@@ -66,7 +69,6 @@ def comp(self):
 
 def jmp(self):
     return self.jmp
-
 
 def _parse_a_command(self):
     # @symbol
