@@ -2,8 +2,9 @@ import sys
 import os
 from symbol_table import SymbolTable
 from parser import Parser
+from code import Code
 
-def _init_symbol_table(symbol_table)
+def _init_symbol_table(symbol_table):
     """Initializes the symbol table with predefined symbols.
 
     Arguments
@@ -64,7 +65,7 @@ def _second_pass(input_fname, symbol_table, output_fname):
 
     # Variable symbols start at RAM address 16.
     ram_address = 16
-    fout = open(input_fname, "w")
+    fout = open(output_fname, "w")
     parser = Parser(input_fname)
     while parser.has_more_commands():
         parser.advance()
@@ -76,12 +77,12 @@ def _second_pass(input_fname, symbol_table, output_fname):
             except ValueError:
                 # The symbol isn't a decimal number thus it must either be in the symbol table or it needs to be
                 # assigned a value.
-                if !symbol_table.contains(symbol):
+                if not symbol_table.contains(symbol):
                     symbol_table.add_entry(symbol, ram_address)
                     ram_address += 1
                 fout.write("0" + Code.to_binary(symbol_table.get_address(symbol)) + "\n")
         elif parser.command_type() == Parser.C_COMMAND:
-            fout.write("111" + Code.dest(parser.dest()) + Code.comp(parser.comp()) + Code.jmp(parser.jmp()) + "\n")
+            fout.write("111" + Code.comp(parser.comp()) + Code.dest(parser.dest()) + Code.jmp(parser.jmp()) + "\n")
         # Ignore L_COMMAND, they have been looked at in the first pass.
     fout.close()
 
@@ -95,8 +96,10 @@ def main(input_fname):
     symbol_table = SymbolTable()
     _init_symbol_table(symbol_table)
     _first_pass(input_fname, symbol_table)
-    output_fname = os.path.splitext(input_fname)[1] + ".hack"
+    output_fname = os.path.splitext(input_fname)[0] + ".hack"
     _second_pass(input_fname, symbol_table, output_fname)
 
 if __name__ == '__main__': 
+    if len(sys.argv) != 2:
+        sys.exit("Error input file required")
     main(sys.argv[1])
