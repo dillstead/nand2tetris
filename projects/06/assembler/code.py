@@ -43,7 +43,6 @@ class Code:
         Arguments
         mnemonic (string) - Dest mnemonic.
         """
-        print(mnemonic)
         if mnemonic == "0":
             return "0101010"
         elif mnemonic == "1":

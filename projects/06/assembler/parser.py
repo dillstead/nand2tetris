@@ -36,7 +36,6 @@ class Parser:
             # Ignore blank lines and comments.
             if len(commands) > 0 and commands[0][0] != '/':
                 self._command = commands[0]
-                print("Found command: " + self._command)
                 return True
             line = self._fin.readline()
         self._fin.close()
