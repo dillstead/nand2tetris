@@ -4,9 +4,9 @@ import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Handles parsing of a single VM file.
@@ -15,28 +15,28 @@ import java.util.Set;
  */
 class Parser
 {
-    enum CommandType
-    {
-        C_ARITHMETIC,
-        C_PUSH,
-        C_POP
-    }
-    
     private final BufferedReader reader;
     private String[] tokens;
     private CommandType commandType;
     private String arg1;
     private String arg2;
-    
-    private static final Set<String> arithmeticCommands = new HashSet<String>();
-    private static final Set<String> pushCommand  = new HashSet<String>();
-    private static final Set<String> popCommand  = new HashSet<String>();
-    
+
+    private static final Map<String, CommandType> commandTypeMap;
     static
     {
-        arithmeticCommands.addAll(Arrays.asList("add", "sub", "neg", "eq", "gt", "lt", "and", "or", "not"));
-        pushCommand.addAll(Arrays.asList("push"));
-        popCommand .addAll(Arrays.asList("push"));
+        Map<String, CommandType> map = new HashMap<String, CommandType>();
+        map.put("add", CommandType.C_ADD);
+        map.put("sub", CommandType.C_SUB);
+        map.put("add", CommandType.C_NEG);
+        map.put("add", CommandType.C_EQ);
+        map.put("add", CommandType.C_GT);
+        map.put("add", CommandType.C_LT);
+        map.put("add", CommandType.C_AND);
+        map.put("add", CommandType.C_OR);
+        map.put("add", CommandType.C_NOT);
+        map.put("add", CommandType.C_PUSH);
+        map.put("add", CommandType.C_POP);
+        commandTypeMap = Collections.unmodifiableMap(map);
     }
     
     /**
@@ -84,22 +84,11 @@ class Parser
      */
     void advance()
     {
-        arg1 = tokens[0];
-        if (arithmeticCommands.contains(arg1))
-        {
-             commandType = CommandType.C_ARITHMETIC;
-        }
-        else if (pushCommand.contains(arg1))
-        {
-            commandType = CommandType.C_PUSH;
-            arg2 = tokens[1];
-        }
-        else if (popCommand.contains(arg1))
-        {
-            commandType = CommandType.C_POP;
-            arg2 = tokens[1];
-        }
-        else
+        commandType = commandTypeMap.get(tokens[0]);
+        arg1 = tokens.length > 1 ? tokens[1] : null;
+        arg2 = tokens.length > 2 ? tokens[2] : null;
+        
+        if (commandType == null)
         {
             throw new IllegalArgumentException("Invalid command " + arg1);
         }
@@ -114,9 +103,8 @@ class Parser
     }
     
     /**
-     * Returns the first argument of the current command.  In the case of 
-     * CommandTypee.C_ARITHMETIC the command itself (add, sub, etc.) is
-     * returned.
+     * Returns the first argument of the current command, if the command 
+     * has one.
      * @return The first argument of the current command.
      */
     String arg1()
@@ -124,9 +112,9 @@ class Parser
         return arg1;
     }
     
-    /**
-     * Returns the second  argument of the current command.  Should be
-     * called only if the current command is C_PUSH or C_POP.
+     /**
+     * Returns the second argument of the current command, if the command 
+     * has one.
      * @return The second argument of the current command.
      */
     String arg2()
