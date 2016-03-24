@@ -17,27 +17,9 @@ class Parser
 {
     private final BufferedReader reader;
     private String[] tokens;
-    private CommandType commandType;
+    private String command;
     private String arg1;
     private String arg2;
-
-    private static final Map<String, CommandType> commandTypeMap;
-    static
-    {
-        Map<String, CommandType> map = new HashMap<String, CommandType>();
-        map.put("add", CommandType.C_ADD);
-        map.put("sub", CommandType.C_SUB);
-        map.put("add", CommandType.C_NEG);
-        map.put("add", CommandType.C_EQ);
-        map.put("add", CommandType.C_GT);
-        map.put("add", CommandType.C_LT);
-        map.put("add", CommandType.C_AND);
-        map.put("add", CommandType.C_OR);
-        map.put("add", CommandType.C_NOT);
-        map.put("add", CommandType.C_PUSH);
-        map.put("add", CommandType.C_POP);
-        commandTypeMap = Collections.unmodifiableMap(map);
-    }
     
     /**
      * Creates a parser for VM file.
@@ -84,22 +66,17 @@ class Parser
      */
     void advance()
     {
-        commandType = commandTypeMap.get(tokens[0]);
+        command = tokens[0];
         arg1 = tokens.length > 1 ? tokens[1] : null;
         arg2 = tokens.length > 2 ? tokens[2] : null;
-        
-        if (commandType == null)
-        {
-            throw new IllegalArgumentException("Invalid command " + arg1);
-        }
     }
     
     /**
-     * @return Type of the current command.
+     * @return Returns the current command.
      */
-    CommandType commandType()
+    String command()
     {
-        return commandType;
+        return command;
     }
     
     /**

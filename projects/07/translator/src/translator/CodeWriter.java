@@ -15,11 +15,58 @@ import java.util.Map;
  */
 class CodeWriter
 {
+	private enum CommandType
+	{
+		C_ADD,
+	    C_SUB,
+	    C_NEG,
+	    C_EQ,
+	    C_GT,
+	    C_LT,
+	    C_AND,
+	    C_OR,
+	    C_NOT,
+	    C_PUSH,
+	    C_POP
+	}
+	
+	private static final Map<String, CommandType> commandTypeMap;
+    static
+    {
+        Map<String, CommandType> map = new HashMap<String, CommandType>();
+        map.put("add", CommandType.C_ADD);
+        map.put("sub", CommandType.C_SUB);
+        map.put("add", CommandType.C_NEG);
+        map.put("add", CommandType.C_EQ);
+        map.put("add", CommandType.C_GT);
+        map.put("add", CommandType.C_LT);
+        map.put("add", CommandType.C_AND);
+        map.put("add", CommandType.C_OR);
+        map.put("add", CommandType.C_NOT);
+        map.put("add", CommandType.C_PUSH);
+        map.put("add", CommandType.C_POP);
+        commandTypeMap = Collections.unmodifiableMap(map);
+    }
+	
+    // break down push into virtual, regular, constant, static
+    // virtual map segment to hack variable, use virtual push template with hack variable and index
+    // regular map segment to hack variable, use virtual pop template
+    // constant map, use constant template
+    // static map, use static template
+    
+    // break down pop in same fashion
+    
+    // single command map to hack operator -> single template
+    // double command map to hack operator -> double template
+    // comparison command map to hack operator -> comparison template
+    
     private final BufferedWriter writer;
     private String inputFileName;
     
-    private static final Map<CommandType, String> twoArgCommandMap;
-    private static final Map<CommandType, String> singleArgCommandMap;
+    private static final Map<CommandType, String> twoArgArithmeticCommandMap;
+    private static final Map<CommandType, String> singleArgArithmeticCommandMap;
+    private static final Map<CommandType, String> twoArgArithmeticComparisonCommandMap;
+
     static
     {
         Map<CommandType, String> map = new HashMap<CommandType, String>();
@@ -27,11 +74,16 @@ class CodeWriter
         map.put(CommandType.C_SUB, "-");
         map.put(CommandType.C_AND, "&");
         map.put(CommandType.C_OR, "|");
-        twoArgCommandMap = Collections.unmodifiableMap(map);
-        map  = new HashMap<CommandType, String>();
+        twoArgArithmeticCommandMap = Collections.unmodifiableMap(map);
+        map.clear();
         map.put(CommandType.C_NEG, "-");
         map.put(CommandType.C_NOT, "!");
-        singleArgCommandMap = Collections.unmodifiableMap(map);
+        singleArgArithmeticCommandMap = Collections.unmodifiableMap(map);
+        map.clear();
+        map.put(CommandType.C_GT, "JGT");
+        map.put(CommandType.C_LT, "JLT");
+        map.put(CommandType.C_EQ, "JEQ");
+        twoArgArithmeticComparisonCommandMap = Collections.unmodifiableMap(map);
     }
     
     /**
@@ -58,15 +110,24 @@ class CodeWriter
      * @param command Command
      * @throws IOException If writing to the output file failed.
      */
-    void writeCommand(CommandType command) throws IOException
+    void writeCommand(String command) throws IOException
     {
-    	if (twoArgCommandMap.containsKey(command))
+    	CommandType commandType = commandTypeMap.get(command);
+    	if (commandType == null)
     	{
-    		writeTwoArgCommand(twoArgCommandMap.get(command));
+    		throw new IllegalArgumentException("Invalid command: " + command);
     	}
-    	else if (singleArgCommandMap.containsKey(command))
+    	if (twoArgArithmeticCommandMap.containsKey(command))
     	{
-    		writeSingleArgCommand(singleArgCommandMap.get(command));
+    		writeTwoArgArithmeticCommand(twoArgArithmeticCommandMap.get(command));
+    	}
+    	else if (singleArgArithmeticCommandMap.containsKey(command))
+    	{
+    		writeSingleArgArithmeticCommand(singleArgArithmeticCommandMap.get(command));
+    	}
+    	else if (twoArgArithmeticComparisonCommandMap.containsKey(command))
+    	{
+    		writeTwoArgArithmeticComparisonCommand(twoArgArithmeticCommandMap.get(command));
     	}
     }
     
@@ -79,31 +140,69 @@ class CodeWriter
         writer.close();
     }
     
-    private void writeTwoArgCommand(String operator) throws IOException
+    private void writeTwoArgArithmeticCommand(String operator) throws IOException
     {
     	StringBuilder sb = new StringBuilder();
+    	// Pop stack into D.
     	sb.append("@SP");
     	sb.append("AM=M-1");
     	sb.append("D=M");
     	sb.append("@SP");
+    	// Pop stack and place address into A.
     	sb.append("AM=M-1");
+    	// Operate on D and M, store result in M (top of stack).
     	sb.append("M=M");
     	sb.append(operator);
     	sb.append("D");
+    	// Increment SP.
     	sb.append("@SP");
     	sb.append("M=M+1");
     	writer.write(sb.toString());
     }
     
-    private void writeSingleArgCommand(String operator) throws IOException
+    private void writeSingleArgArithmeticCommand(String operator) throws IOException
     {
     	StringBuilder sb = new StringBuilder();
+    	// Pop stack and place address into A.
     	sb.append("@SP");
     	sb.append("AM=M-1");
+    	// Operate on M, store result in M (top of stack).
     	sb.append("M=");
     	sb.append(operator);
     	sb.append("M");
     	sb.append("D=M");
+    	// Increment SP.
+    	sb.append("@SP");
+    	sb.append("M=M+1");
+    	writer.write(sb.toString());
+    }
+    
+    private void writeTwoArgArithmeticComparisonCommand(String operator) throws IOException
+    {
+    	StringBuilder sb = new StringBuilder();
+    	// Pop stack into D.
+    	sb.append("@SP");
+    	sb.append("AM=M-1");
+    	sb.append("D=M");
+    	// Pop stack and place address into A.
+    	sb.append("@SP");
+    	sb.append("AM=M-1");
+    	// Compute difference of M and D and store in D.
+    	sb.append("D=M-D");
+    	// Jump according to the operator.
+    	sb.append("@");
+    	sb.append(operator);
+    	sb.append("D;");
+    	sb.append(operator);
+    	// D is 0 if successful.
+    	sb.append("D=0");
+    	// Finished.
+    	sb.append("@END");
+    	sb.append("0;JMP");
+    	
+    	
+    	sb.append(operator);
+    	sb.append("D");
     	sb.append("@SP");
     	sb.append("M=M+1");
     	writer.write(sb.toString());
