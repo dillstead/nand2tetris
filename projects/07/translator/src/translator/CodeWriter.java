@@ -5,7 +5,9 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Translates VM commands into Hack assembly code and writes the assembly
@@ -15,75 +17,73 @@ import java.util.Map;
  */
 class CodeWriter
 {
-	private enum CommandType
-	{
-		C_ADD,
-	    C_SUB,
-	    C_NEG,
-	    C_EQ,
-	    C_GT,
-	    C_LT,
-	    C_AND,
-	    C_OR,
-	    C_NOT,
-	    C_PUSH,
-	    C_POP
-	}
-	
-	private static final Map<String, CommandType> commandTypeMap;
-    static
-    {
-        Map<String, CommandType> map = new HashMap<String, CommandType>();
-        map.put("add", CommandType.C_ADD);
-        map.put("sub", CommandType.C_SUB);
-        map.put("add", CommandType.C_NEG);
-        map.put("add", CommandType.C_EQ);
-        map.put("add", CommandType.C_GT);
-        map.put("add", CommandType.C_LT);
-        map.put("add", CommandType.C_AND);
-        map.put("add", CommandType.C_OR);
-        map.put("add", CommandType.C_NOT);
-        map.put("add", CommandType.C_PUSH);
-        map.put("add", CommandType.C_POP);
-        commandTypeMap = Collections.unmodifiableMap(map);
-    }
-	
-    // break down push into virtual, regular, constant, static
-    // virtual map segment to hack variable, use virtual push template with hack variable and index
-    // regular map segment to hack variable, use virtual pop template
-    // constant map, use constant template
-    // static map, use static template
-    
-    // break down pop in same fashion
-    
-    // single command map to hack operator -> single template
-    // double command map to hack operator -> double template
-    // comparison command map to hack operator -> comparison template
-    
     private final BufferedWriter writer;
     private String inputFileName;
     
-    private static final Map<CommandType, String> twoArgArithmeticCommandMap;
-    private static final Map<CommandType, String> singleArgArithmeticCommandMap;
-    private static final Map<CommandType, String> twoArgArithmeticComparisonCommandMap;
-
+    private static final Map<String, String> segmentMap;
+    private static final Set<String> realSegmentSet;
+    private static final Set<String> virtualSegmentSet;
+    private static final Set<String> constantSegmentSet;
+    private static final Set<String> staticSegmentSet;
     static
     {
-        Map<CommandType, String> map = new HashMap<CommandType, String>();
-        map.put(CommandType.C_ADD, "+");
-        map.put(CommandType.C_SUB, "-");
-        map.put(CommandType.C_AND, "&");
-        map.put(CommandType.C_OR, "|");
-        twoArgArithmeticCommandMap = Collections.unmodifiableMap(map);
-        map.clear();
-        map.put(CommandType.C_NEG, "-");
-        map.put(CommandType.C_NOT, "!");
-        singleArgArithmeticCommandMap = Collections.unmodifiableMap(map);
-        map.clear();
-        map.put(CommandType.C_GT, "JGT");
-        map.put(CommandType.C_LT, "JLT");
-        map.put(CommandType.C_EQ, "JEQ");
-        twoArgArithmeticComparisonCommandMap = Collections.unmodifiableMap(map);
+    	Set<String> set = new HashSet<String>();
+        set.add("local");
+        set.add("argument");
+        set.add("this");
+        set.add("that");
+        realSegmentSet = Collections.unmodifiableSet(set);
+        set.clear();
+        set.add("pointer");
+        set.add("temp");
+        virtualSegmentSet = Collections.unmodifiableSet(set);
+        set.clear();
+        set.add("constant");
+        constantSegmentSet = Collections.unmodifiableSet(set);
+        set.clear();
+        set.add("static");
+        staticSegmentSet = Collections.unmodifiableSet(set);
+        Map<String, String> map = new HashMap<String, String>();
+        map.put("local", "LCL");
+        map.put("argument", "ARG");
+        map.put("this", "THIS");
+        map.put("that", "THAT");
+        map.put("pointer", "THIS");
+        map.put("temp", "RAM[5]");
+        segmentMap = Collections.unmodifiableMap(map);
+    }
+    private static final Map<String, String> arithmeticOperatorMap;
+    private static final Set<String> twoArgArithmeticCommandSet;
+    private static final Set<String> singleArgArithmeticCommandSet;
+    private static final Set<String> twoArgArithmeticComparisonCommandSet;
+    static
+    {
+        Set<String> set = new HashSet<String>();
+        set.add("add");
+        set.add("sub");
+        set.add("and");
+        set.add("or");
+        twoArgArithmeticCommandSet = Collections.unmodifiableSet(set);
+        set.clear();
+        set.add("neg");
+        set.add("not");
+        singleArgArithmeticCommandSet = Collections.unmodifiableSet(set);
+        set.clear();
+        set.add("gt");
+        set.add("lt");
+        set.add("eq");
+        twoArgArithmeticComparisonCommandSet = Collections.unmodifiableSet(set);
+        Map<String, String> map = new HashMap<String, String>();
+        map.put("add", "+");
+        map.put("sub", "-");
+        map.put("and", "&");
+        map.put("or", "|");
+        map.put("neg", "-");
+        map.put("not", "!");
+        map.put("gt", "JGT");
+        map.put("lt", "JLT");
+        map.put("eq", "JEQ");
+        arithmeticOperatorMap = Collections.unmodifiableMap(map);
     }
     
     /**
@@ -96,7 +96,7 @@ class CodeWriter
         writer = new BufferedWriter(new FileWriter(outputFileName));
     }
     
-    /**
+    /**<
      * Informs the code writer that the translation of a new VM file has started.
      * @param inputFileName File name of the new VM file.
      */
@@ -112,22 +112,21 @@ class CodeWriter
      */
     void writeCommand(String command) throws IOException
     {
-    	CommandType commandType = commandTypeMap.get(command);
-    	if (commandType == null)
+    	if (command == null)
     	{
     		throw new IllegalArgumentException("Invalid command: " + command);
     	}
-    	if (twoArgArithmeticCommandMap.containsKey(command))
+    	if (twoArgArithmeticCommandSet.contains(command))
     	{
-    		writeTwoArgArithmeticCommand(twoArgArithmeticCommandMap.get(command));
+    		writeTwoArgArithmeticCommand(arithmeticOperatorMap.get(command));
     	}
-    	else if (singleArgArithmeticCommandMap.containsKey(command))
+    	else if (singleArgArithmeticCommandSet.contains(command))
     	{
-    		writeSingleArgArithmeticCommand(singleArgArithmeticCommandMap.get(command));
+    		writeSingleArgArithmeticCommand(arithmeticOperatorMap.get(command));
     	}
-    	else if (twoArgArithmeticComparisonCommandMap.containsKey(command))
+    	else if (twoArgArithmeticComparisonCommandSet.contains(command))
     	{
-    		writeTwoArgArithmeticComparisonCommand(twoArgArithmeticCommandMap.get(command));
+    		writeTwoArgArithmeticComparisonCommand(arithmeticOperatorMap.get(command));
     	}
     }
     
@@ -143,68 +142,59 @@ class CodeWriter
     private void writeTwoArgArithmeticCommand(String operator) throws IOException
     {
     	StringBuilder sb = new StringBuilder();
-    	// Pop stack into D.
-    	sb.append("@SP");
-    	sb.append("AM=M-1");
-    	sb.append("D=M");
-    	sb.append("@SP");
-    	// Pop stack and place address into A.
-    	sb.append("AM=M-1");
-    	// Operate on D and M, store result in M (top of stack).
-    	sb.append("M=M");
-    	sb.append(operator);
-    	sb.append("D");
-    	// Increment SP.
-    	sb.append("@SP");
-    	sb.append("M=M+1");
+    	sb.append(pop("D", "M"));
+    	sb.append(pop("M", "M" + operator + "D"));
+    	sb.append(push(null));
     	writer.write(sb.toString());
     }
     
     private void writeSingleArgArithmeticCommand(String operator) throws IOException
     {
     	StringBuilder sb = new StringBuilder();
-    	// Pop stack and place address into A.
-    	sb.append("@SP");
-    	sb.append("AM=M-1");
-    	// Operate on M, store result in M (top of stack).
-    	sb.append("M=");
-    	sb.append(operator);
-    	sb.append("M");
-    	sb.append("D=M");
-    	// Increment SP.
-    	sb.append("@SP");
-    	sb.append("M=M+1");
+    	sb.append(pop("M", operator + "M"));
+    	sb.append(push(null));
     	writer.write(sb.toString());
     }
     
     private void writeTwoArgArithmeticComparisonCommand(String operator) throws IOException
     {
     	StringBuilder sb = new StringBuilder();
-    	// Pop stack into D.
-    	sb.append("@SP");
-    	sb.append("AM=M-1");
-    	sb.append("D=M");
-    	// Pop stack and place address into A.
-    	sb.append("@SP");
-    	sb.append("AM=M-1");
-    	// Compute difference of M and D and store in D.
-    	sb.append("D=M-D");
-    	// Jump according to the operator.
-    	sb.append("@");
-    	sb.append(operator);
-    	sb.append("D;");
-    	sb.append(operator);
-    	// D is 0 if successful.
+    	sb.append(pop("D", "M"));
+    	sb.append(pop("D", "M-D"));
+    	sb.append("@" + operator);
+    	sb.append("D;" + operator);
     	sb.append("D=0");
-    	// Finished.
     	sb.append("@END");
     	sb.append("0;JMP");
+    	sb.append("(" + operator + ")");
+    	sb.append("D=-1");
+    	sb.append("(END)");
+    	sb.append(push("D"));
+    	writer.write(sb.toString());
+    }
+    
+    private String push(String comp)
+    {
+    	StringBuilder sb = new StringBuilder();
     	
-    	
-    	sb.append(operator);
-    	sb.append("D");
+    	if (comp != null)
+    	{
+    		sb.append("@SP");
+    		sb.append("A=M");
+    		sb.append("M=D");
+    	}
     	sb.append("@SP");
     	sb.append("M=M+1");
-    	writer.write(sb.toString());
+    	return sb.toString();
+    }
+    
+    private String pop(String dest, String comp)
+    {
+    	StringBuilder sb = new StringBuilder();
+    	
+    	sb.append("@SP");
+    	sb.append("AM=M-1");
+    	sb.append(dest + "=" + comp);
+    	return sb.toString();
     }
 }
