@@ -25,6 +25,8 @@ class CodeWriter
     private static final Set<String> virtualSegmentSet;
     private static final Set<String> constantSegmentSet;
     private static final Set<String> staticSegmentSet;
+    private static final Set<String> pushCommandSet;
+    private static final Set<String> popCommandSet;
     static
     {
     	Set<String> set = new HashSet<String>();
@@ -43,6 +45,12 @@ class CodeWriter
         set.clear();
         set.add("static");
         staticSegmentSet = Collections.unmodifiableSet(set);
+        set.clear();
+        set.add("push");
+        pushCommandSet = Collections.unmodifiableSet(set);
+        set.clear();
+        set.add("pop");
+        popCommandSet = Collections.unmodifiableSet(set);
         Map<String, String> map = new HashMap<String, String>();
         map.put("local", "LCL");
         map.put("argument", "ARG");
@@ -108,14 +116,12 @@ class CodeWriter
     /**
      * Writes the assembly code that is the translation of the given command.
      * @param command Command
-     * @throws IOException If writing to the output file failed.
+     * @param arg1 Optional first command argument.
+     * @param arg2 Optional second command argument.
+     * @throws IOException If writning to the output file failed.
      */
-    void writeCommand(String command) throws IOException
+    void writeCommand(String command, String arg1, String arg2) throws IOException
     {
-    	if (command == null)
-    	{
-    		throw new IllegalArgumentException("Invalid command: " + command);
-    	}
     	if (twoArgArithmeticCommandSet.contains(command))
     	{
     		writeTwoArgArithmeticCommand(arithmeticOperatorMap.get(command));
@@ -128,6 +134,52 @@ class CodeWriter
     	{
     		writeTwoArgArithmeticComparisonCommand(arithmeticOperatorMap.get(command));
     	}
+        else if (pushCommandSet.contains(command))
+        {
+            if (realSegmentSet.contains(arg1))
+            {
+                writePushRealSegmentCommand(segmentMap.get(arg1), arg2);
+            }
+            else if (virtualSegmentSet.contains(arg1))
+            {
+                writePushVirtualSegmentCommand(segmentMap.get(arg1), arg2);
+            }
+            else if (constantSegmentSet.contains(arg1))
+            {
+                writePushConstantSegmentCommand(segmentMap.get(arg1), arg2);
+            }
+            else if (staticSegmentSet.contains(arg1))
+            {
+                writePushStaticSegmentCommand(segmentMap.get(arg1), arg2);
+            }
+            else
+            {
+            	throw new IllegalArgumentException("Invalid push segment: " + arg1);
+            }
+        }
+        else if (popCommandSet.contains(command))
+        {
+            if (realSegmentSet.contains(arg1))
+            {
+                writePopRealSegmentCommand(segmentMap.get(arg1), arg2);
+            }
+            else if (virtualSegmentSet.contains(arg1))
+            {
+                writePopVirtualSegmentCommand(segmentMap.get(arg1), arg2);
+            }
+            else if (staticSegmentSet.contains(arg1))
+            {
+                writePopStaticSegmentCommand(segmentMap.get(arg1), arg2);
+            }
+            else
+            {
+            	throw new IllegalArgumentException("Invalid pop segment: " + arg1);
+            }
+        }
+        else
+        {
+            throw new IllegalArgumentException("Invalid command: " + command);
+        }
     }
     
     /**
@@ -171,6 +223,34 @@ class CodeWriter
     	sb.append("(END)");
     	sb.append(push("D"));
     	writer.write(sb.toString());
+    }
+
+    private void writePushRealSegmentCommand(String segment, String offset)
+    {
+    }
+
+    private void writePushVirtualSegmentCommand(String segment, String offset)
+    {
+    }
+
+    private void writePushConstantSegmentCommand(String segment, String offset)
+    {
+    }
+
+    private void writePushStaticSegmentCommand(String segment, String offset)
+    {
+    }
+
+    private void writePopRealSegmentCommand(String segment, String offset)
+    {
+    }
+
+    private void writePopVirtualSegmentCommand(String segment, String offset)
+    {
+    }
+
+    private void writePopStaticSegmentCommand(String segment, String offset)
+    {
     }
     
     private String push(String comp)
