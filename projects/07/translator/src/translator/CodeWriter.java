@@ -57,7 +57,7 @@ class CodeWriter
         map.put("this", "THIS");
         map.put("that", "THAT");
         map.put("pointer", "THIS");
-        map.put("temp", "RAM[5]");
+        map.put("temp", "RAM5");
         segmentMap = Collections.unmodifiableMap(map);
     }
     private static final Map<String, String> arithmeticOperatorMap;
@@ -146,11 +146,11 @@ class CodeWriter
             }
             else if (constantSegmentSet.contains(arg1))
             {
-                writePushConstantSegmentCommand(segmentMap.get(arg1), arg2);
+                writePushConstantSegmentCommand(arg2);
             }
             else if (staticSegmentSet.contains(arg1))
             {
-                writePushStaticSegmentCommand(segmentMap.get(arg1), arg2);
+                writePushStaticSegmentCommand(arg2);
             }
             else
             {
@@ -225,32 +225,85 @@ class CodeWriter
     	writer.write(sb.toString());
     }
 
-    private void writePushRealSegmentCommand(String segment, String offset)
+    private void writePushRealSegmentCommand(String segment, String offset) throws IOException
     {
+    	StringBuilder sb = new StringBuilder();
+    	sb.append("@" + segment);
+    	sb.append("D=M");
+    	sb.append("@" + offset);
+    	sb.append("A=A+D");
+    	sb.append("D=M");
+    	sb.append(push("D"));
+    	writer.write(sb.toString());
     }
 
-    private void writePushVirtualSegmentCommand(String segment, String offset)
+    private void writePushVirtualSegmentCommand(String segment, String offset) throws IOException
     {
+    	StringBuilder sb = new StringBuilder();
+    	sb.append("@" + segment);
+    	sb.append("D=A");
+    	sb.append("@" + offset);
+    	sb.append("A=A+D");
+    	sb.append("D=M");
+    	sb.append(push("D"));
+    	writer.write(sb.toString());
     }
 
-    private void writePushConstantSegmentCommand(String segment, String offset)
+    private void writePushConstantSegmentCommand(String constant) throws IOException
     {
+    	StringBuilder sb = new StringBuilder();
+    	sb.append("@" + constant);
+    	sb.append("D=A");
+    	sb.append(push("D"));
+    	writer.write(sb.toString());
     }
 
-    private void writePushStaticSegmentCommand(String segment, String offset)
+    private void writePushStaticSegmentCommand(String offset) throws IOException
     {
+    	StringBuilder sb = new StringBuilder();
+    	sb.append("@" + inputFileName + "." + offset);
+    	sb.append("D=M");
+    	sb.append(push("D"));
+    	writer.write(sb.toString());
     }
 
-    private void writePopRealSegmentCommand(String segment, String offset)
+    private void writePopRealSegmentCommand(String segment, String offset) throws IOException
     {
+    	StringBuilder sb = new StringBuilder();
+    	sb.append("@" + segment);
+    	sb.append("D=M");
+    	sb.append("@" + offset);
+    	sb.append("D=D+A");
+    	sb.append("@R13");
+    	sb.append("M=D");
+    	sb.append(pop("D", "M"));
+    	sb.append("@R13");
+    	sb.append("A=M");
+    	sb.append("M=D");
     }
 
-    private void writePopVirtualSegmentCommand(String segment, String offset)
+    private void writePopVirtualSegmentCommand(String segment, String offset) throws IOException
     {
+    	StringBuilder sb = new StringBuilder();
+    	sb.append("@" + segment);
+    	sb.append("D=A");
+    	sb.append("@" + offset);
+    	sb.append("D=D+A");
+    	sb.append("@R13");
+    	sb.append("M=D");
+    	sb.append(pop("D", "M"));
+    	sb.append("@R13");
+    	sb.append("A=M");
+    	sb.append("M=D");
     }
 
-    private void writePopStaticSegmentCommand(String segment, String offset)
+    private void writePopStaticSegmentCommand(String segment, String offset) throws IOException
     {
+    	StringBuilder sb = new StringBuilder();
+    	sb.append(pop("D", "M"));
+    	sb.append("@" + inputFileName + "." + offset);
+    	sb.append("M=D");
+    	writer.write(sb.toString());
     }
     
     private String push(String comp)
