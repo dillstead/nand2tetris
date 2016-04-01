@@ -1,6 +1,7 @@
 package translator;
 
 import java.io.BufferedWriter;
+import java.io.Closeable;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Collections;
@@ -15,7 +16,7 @@ import java.util.Set;
  * @author kujawk
  *
  */
-class CodeWriter
+class CodeWriter implements Closeable
 {
     private final BufferedWriter writer;
     private String inputFileName;
@@ -186,7 +187,7 @@ class CodeWriter
      * Closes the output file.
      * @throws IOException If an error occurred closing the output file.
      */
-    void close() throws IOException
+    public void close() throws IOException
     {
         writer.close();
     }

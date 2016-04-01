@@ -18,10 +18,30 @@ public class Translator
      */
     public static void main(String args[])
     {
-        String[] fileNames = getFileNames(args[1]);
+    	// parser and code writer implement closable
+    	
+    	CodeWriter codeWriter = new CodeWriter(getOutputFileName(args[1]));
+        String[] inputFileNames = getInputFileNames(args[1]);
+        for (String inputFileName : inputFileNames)
+        {
+        	codeWriter.setFileName(inputFileName);
+        	Parser parser = new Parser(inputFileName);
+        	while (parser.hasMoreCommands())
+        	{
+        		parser.advance();
+        		codeWriter.writeCommand(parser.command(), parser.arg1(), parser.arg2());
+        	}
+        }
+        codeWriter.close();
     }
     
-    private static String[] getFileNames(String fileOrDirectoryName)
+    private static String getOutputFileName(String fileOrDirectoryName)
+    {
+    	int i = fileOrDirectoryName.lastIndexOf(".vm");
+    	return  i != -1 ? fileOrDirectoryName.substring(0, i) : fileOrDirectoryName;
+    }
+    
+    private static String[] getInputFileNames(String fileOrDirectoryName)
     {
         File file = new File(fileOrDirectoryName);
         if (file.isDirectory())

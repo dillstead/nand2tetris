@@ -1,19 +1,17 @@
 package translator;
 
 import java.io.BufferedReader;
+import java.io.Closeable;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * Handles parsing of a single VM file.
  * @author kujawk
  *
  */
-class Parser
+class Parser implements Closeable
 {
     private final BufferedReader reader;
     private String[] tokens;
@@ -98,4 +96,9 @@ class Parser
     {
         return arg2;
     }
+
+	@Override
+	public void close() throws IOException {
+		// TODO Auto-generated method stub
+	}
 }
