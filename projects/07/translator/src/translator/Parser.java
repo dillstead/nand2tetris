@@ -2,6 +2,7 @@ package translator;
 
 import java.io.BufferedReader;
 import java.io.Closeable;
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
@@ -24,9 +25,9 @@ class Parser implements Closeable
      * @param inputFileName
      * @throws FileNotFoundException If the file is not found. 
      */
-    Parser(String inputFileName) throws FileNotFoundException
+    Parser(File inputFile) throws FileNotFoundException
     {
-        reader = new BufferedReader(new FileReader(inputFileName));
+        reader = new BufferedReader(new FileReader(inputFile));
     }
     
     /**
@@ -41,13 +42,13 @@ class Parser implements Closeable
             String line = reader.readLine();
             while (line != null)
             {
-               tokens = line.split("\\s+");
-               // Ignore blank lines and comments.
-               if (tokens.length > 0 && tokens[0].charAt(0) != '/')
-               {
-                   return true;
-               }
-               line = reader.readLine();
+                tokens = line.split("\\s+");
+                // Ignore blank lines and comments.
+                if (tokens.length > 0 && !tokens[0].isEmpty() && tokens[0].charAt(0) != '/')
+                {
+                	return true;
+                }
+                line = reader.readLine();
             }
             reader.close();
             return false;

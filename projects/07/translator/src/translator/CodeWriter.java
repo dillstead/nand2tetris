@@ -1,9 +1,9 @@
 package translator;
 
-import java.io.BufferedWriter;
 import java.io.Closeable;
-import java.io.FileWriter;
+import java.io.File;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -18,7 +18,7 @@ import java.util.Set;
  */
 class CodeWriter implements Closeable
 {
-    private final BufferedWriter writer;
+    private final PrintWriter writer;
     private String inputFileName;
     
     private static final Map<String, String> segmentMap;
@@ -36,20 +36,20 @@ class CodeWriter implements Closeable
         set.add("this");
         set.add("that");
         realSegmentSet = Collections.unmodifiableSet(set);
-        set.clear();
+        set = new HashSet<String>();
         set.add("pointer");
         set.add("temp");
         virtualSegmentSet = Collections.unmodifiableSet(set);
-        set.clear();
+        set = new HashSet<String>();
         set.add("constant");
         constantSegmentSet = Collections.unmodifiableSet(set);
-        set.clear();
+        set = new HashSet<String>();
         set.add("static");
         staticSegmentSet = Collections.unmodifiableSet(set);
-        set.clear();
+        set = new HashSet<String>();
         set.add("push");
         pushCommandSet = Collections.unmodifiableSet(set);
-        set.clear();
+        set = new HashSet<String>();
         set.add("pop");
         popCommandSet = Collections.unmodifiableSet(set);
         Map<String, String> map = new HashMap<String, String>();
@@ -73,11 +73,11 @@ class CodeWriter implements Closeable
         set.add("and");
         set.add("or");
         twoArgArithmeticCommandSet = Collections.unmodifiableSet(set);
-        set.clear();
+        set = new HashSet<String>();
         set.add("neg");
         set.add("not");
         singleArgArithmeticCommandSet = Collections.unmodifiableSet(set);
-        set.clear();
+        set = new HashSet<String>();
         set.add("gt");
         set.add("lt");
         set.add("eq");
@@ -100,9 +100,9 @@ class CodeWriter implements Closeable
      * @param outputFileName
      * @throws IOException If the file could not be opened.
      */
-    CodeWriter(String outputFileName) throws IOException
+    CodeWriter(File outputFile) throws IOException
     {
-        writer = new BufferedWriter(new FileWriter(outputFileName));
+        writer = new PrintWriter(outputFile);
     }
     
     /**<
@@ -123,6 +123,9 @@ class CodeWriter implements Closeable
      */
     void writeCommand(String command, String arg1, String arg2) throws IOException
     {
+    	writer.print("// " + command);
+    	writer.print(arg1 != null ? " " + arg1 : "");
+    	writer.println(arg2 != null ? " " + arg2 : "");
     	if (twoArgArithmeticCommandSet.contains(command))
     	{
     		writeTwoArgArithmeticCommand(arithmeticOperatorMap.get(command));
@@ -194,141 +197,117 @@ class CodeWriter implements Closeable
     
     private void writeTwoArgArithmeticCommand(String operator) throws IOException
     {
-    	StringBuilder sb = new StringBuilder();
-    	sb.append(pop("D", "M"));
-    	sb.append(pop("M", "M" + operator + "D"));
-    	sb.append(push(null));
-    	writer.write(sb.toString());
+    	pop("D", "M");
+    	pop("M", "M" + operator + "D");
+    	push(null);
     }
     
     private void writeSingleArgArithmeticCommand(String operator) throws IOException
     {
-    	StringBuilder sb = new StringBuilder();
-    	sb.append(pop("M", operator + "M"));
-    	sb.append(push(null));
-    	writer.write(sb.toString());
+    	pop("M", operator + "M");
+    	push(null);
     }
     
     private void writeTwoArgArithmeticComparisonCommand(String operator) throws IOException
     {
-    	StringBuilder sb = new StringBuilder();
-    	sb.append(pop("D", "M"));
-    	sb.append(pop("D", "M-D"));
-    	sb.append("@" + operator);
-    	sb.append("D;" + operator);
-    	sb.append("D=0");
-    	sb.append("@END");
-    	sb.append("0;JMP");
-    	sb.append("(" + operator + ")");
-    	sb.append("D=-1");
-    	sb.append("(END)");
-    	sb.append(push("D"));
-    	writer.write(sb.toString());
+        pop("D", "M");
+    	pop("D", "M-D");
+    	writer.println("@" + operator);
+    	writer.println("D;" + operator);
+    	writer.println("D=0");
+    	writer.println("@END");
+    	writer.println("0;JMP");
+    	writer.println("(" + operator + ")");
+    	writer.println("D=-1");
+    	writer.println("(END)");
+    	push("D");
     }
 
     private void writePushRealSegmentCommand(String segment, String offset) throws IOException
     {
-    	StringBuilder sb = new StringBuilder();
-    	sb.append("@" + segment);
-    	sb.append("D=M");
-    	sb.append("@" + offset);
-    	sb.append("A=A+D");
-    	sb.append("D=M");
-    	sb.append(push("D"));
-    	writer.write(sb.toString());
+    	writer.println("@" + segment);
+    	writer.println("D=M");
+    	writer.println("@" + offset);
+    	writer.println("A=A+D");
+    	writer.println("D=M");
+    	push("D");
     }
 
     private void writePushVirtualSegmentCommand(String segment, String offset) throws IOException
     {
-    	StringBuilder sb = new StringBuilder();
-    	sb.append("@" + segment);
-    	sb.append("D=A");
-    	sb.append("@" + offset);
-    	sb.append("A=A+D");
-    	sb.append("D=M");
-    	sb.append(push("D"));
-    	writer.write(sb.toString());
+    	writer.println("@" + segment);
+    	writer.println("D=A");
+    	writer.println("@" + offset);
+    	writer.println("A=A+D");
+    	writer.println("D=M");
+    	push("D");
     }
 
     private void writePushConstantSegmentCommand(String constant) throws IOException
     {
-    	StringBuilder sb = new StringBuilder();
-    	sb.append("@" + constant);
-    	sb.append("D=A");
-    	sb.append(push("D"));
-    	writer.write(sb.toString());
+    	writer.println("@" + constant);
+    	writer.println("D=A");
+    	push("D");
     }
 
     private void writePushStaticSegmentCommand(String offset) throws IOException
     {
-    	StringBuilder sb = new StringBuilder();
-    	sb.append("@" + inputFileName + "." + offset);
-    	sb.append("D=M");
-    	sb.append(push("D"));
-    	writer.write(sb.toString());
+    	writer.println("@" + inputFileName + "." + offset);
+    	writer.println("D=M");
+    	push("D");
     }
 
     private void writePopRealSegmentCommand(String segment, String offset) throws IOException
     {
-    	StringBuilder sb = new StringBuilder();
-    	sb.append("@" + segment);
-    	sb.append("D=M");
-    	sb.append("@" + offset);
-    	sb.append("D=D+A");
-    	sb.append("@R13");
-    	sb.append("M=D");
-    	sb.append(pop("D", "M"));
-    	sb.append("@R13");
-    	sb.append("A=M");
-    	sb.append("M=D");
+    	writer.println("@" + segment);
+    	writer.println("D=M");
+    	writer.println("@" + offset);
+    	writer.println("D=D+A");
+    	writer.println("@R13");
+    	writer.println("M=D");
+    	pop("D", "M");
+    	writer.println("@R13");
+    	writer.println("A=M");
+    	writer.println("M=D");
     }
 
     private void writePopVirtualSegmentCommand(String segment, String offset) throws IOException
     {
-    	StringBuilder sb = new StringBuilder();
-    	sb.append("@" + segment);
-    	sb.append("D=A");
-    	sb.append("@" + offset);
-    	sb.append("D=D+A");
-    	sb.append("@R13");
-    	sb.append("M=D");
-    	sb.append(pop("D", "M"));
-    	sb.append("@R13");
-    	sb.append("A=M");
-    	sb.append("M=D");
+    	writer.println("@" + segment);
+    	writer.println("D=A");
+    	writer.println("@" + offset);
+    	writer.println("D=D+A");
+    	writer.println("@R13");
+    	writer.println("M=D");
+    	pop("D", "M");
+    	writer.println("@R13");
+    	writer.println("A=M");
+    	writer.println("M=D");
     }
 
     private void writePopStaticSegmentCommand(String segment, String offset) throws IOException
     {
-    	StringBuilder sb = new StringBuilder();
-    	sb.append(pop("D", "M"));
-    	sb.append("@" + inputFileName + "." + offset);
-    	sb.append("M=D");
-    	writer.write(sb.toString());
+    	pop("D", "M");
+    	writer.println("@" + inputFileName + "." + offset);
+    	writer.println("M=D");
     }
     
-    private String push(String comp)
+    private void push(String comp)
     {
-    	StringBuilder sb = new StringBuilder();
-    	
     	if (comp != null)
     	{
-    		sb.append("@SP");
-    		sb.append("A=M");
-    		sb.append("M=D");
+    		writer.println("@SP");
+    		writer.println("A=M");
+    		writer.println("M=D");
     	}
-    	sb.append("@SP");
-    	sb.append("M=M+1");
-    	return sb.toString();
+    	writer.println("@SP");
+    	writer.println("M=M+1");
     }
     
-    private String pop(String dest, String comp)
+    private void pop(String dest, String comp)
     {
-    	StringBuilder sb = new StringBuilder();
-    	
-    	sb.append("@SP");
-    	sb.append("AM=M-1");
-    	sb.append(dest + "=" + comp);
-    	return sb.toString();
+    	writer.println("@SP");
+    	writer.println("AM=M-1");
+    	writer.println(dest + "=" + comp);
     }
 }
