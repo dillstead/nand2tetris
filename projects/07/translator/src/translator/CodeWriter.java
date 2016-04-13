@@ -20,6 +20,7 @@ class CodeWriter implements Closeable
 {
     private final PrintWriter writer;
     private String inputFileName;
+    private int labelCount;
     
     private static final Map<String, String> segmentMap;
     private static final Set<String> realSegmentSet;
@@ -210,16 +211,18 @@ class CodeWriter implements Closeable
     
     private void writeTwoArgArithmeticComparisonCommand(String operator) throws IOException
     {
+    	String endLabel = makeLabel("END");
+    	String operatorLabel = makeLabel(operator);
         pop("D", "M");
     	pop("D", "M-D");
-    	writer.println("@" + operator);
+    	writer.println("@" + operatorLabel);
     	writer.println("D;" + operator);
     	writer.println("D=0");
-    	writer.println("@END");
+    	writer.println("@" + endLabel);
     	writer.println("0;JMP");
-    	writer.println("(" + operator + ")");
+    	writer.println("(" + operatorLabel + ")");
     	writer.println("D=-1");
-    	writer.println("(END)");
+    	writer.println("(" + endLabel + ")");
     	push("D");
     }
 
@@ -309,5 +312,11 @@ class CodeWriter implements Closeable
     	writer.println("@SP");
     	writer.println("AM=M-1");
     	writer.println(dest + "=" + comp);
+    }
+    
+    private String makeLabel(String label)
+    {
+    	// Ensure that the label is unique by appending a suffix.
+    	return label + "$" + Integer.toString(labelCount++);
     }
 }
