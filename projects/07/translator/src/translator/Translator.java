@@ -50,7 +50,16 @@ public class Translator
     
     private static File getOutputFile(String fileOrDirectoryName)
     {
-    	return  new File((fileOrDirectoryName.endsWith(".vm") ? fileOrDirectoryName.substring(0, fileOrDirectoryName.length() - 3)  : fileOrDirectoryName) + ".asm");
+        File file = new File(fileOrDirectoryName);
+        if (file.isDirectory())
+        {
+            return  new File(file, fileOrDirectoryName + ".asm");    
+        }
+        else
+        {
+            return  new File(fileOrDirectoryName.substring(0, fileOrDirectoryName.length() - 3) + ".asm");    
+        }
+    	
     }
     
     private static File[] getInputFiles(String fileOrDirectoryName)
