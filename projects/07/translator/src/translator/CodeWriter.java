@@ -59,7 +59,7 @@ class CodeWriter implements Closeable
         map.put("this", "THIS");
         map.put("that", "THAT");
         map.put("pointer", "THIS");
-        map.put("temp", "RAM5");
+        map.put("temp", "R5");
         segmentMap = Collections.unmodifiableMap(map);
     }
     private static final Map<String, String> arithmeticOperatorMap;
