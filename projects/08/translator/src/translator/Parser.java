@@ -66,8 +66,8 @@ class Parser implements Closeable
     void advance()
     {
         command = tokens[0];
-        arg1 = tokens.length > 1 ? tokens[1] : null;
-        arg2 = tokens.length > 2 ? tokens[2] : null;
+        arg1 = tokens.length > 1 && !tokens[1].startsWith("//") ? tokens[1] : null;
+        arg2 = tokens.length > 2 && !tokens[2].startsWith("//") ? tokens[2] : null;
     }
     
     /**

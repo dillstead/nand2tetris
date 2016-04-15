@@ -20,6 +20,7 @@ class CodeWriter implements Closeable
 {
     private final PrintWriter writer;
     private String inputFileName;
+    private String currentFunction = "";
     private int labelCount;
     
     private static final Map<String, String> segmentMap;
@@ -29,6 +30,9 @@ class CodeWriter implements Closeable
     private static final Set<String> staticSegmentSet;
     private static final Set<String> pushCommandSet;
     private static final Set<String> popCommandSet;
+    private static final Set<String> labelCommandSet;
+    private static final Set<String> ifCommandSet;
+    private static final Set<String> gotoCommandSet;
     static
     {
     	Set<String> set = new HashSet<String>();
@@ -53,6 +57,15 @@ class CodeWriter implements Closeable
         set = new HashSet<String>();
         set.add("pop");
         popCommandSet = Collections.unmodifiableSet(set);
+        set = new HashSet<String>();
+        set.add("label");
+        labelCommandSet = Collections.unmodifiableSet(set);
+        set = new HashSet<String>();
+        set.add("goto");
+        gotoCommandSet = Collections.unmodifiableSet(set);
+        set = new HashSet<String>();
+        set.add("if-goto");
+        ifCommandSet = Collections.unmodifiableSet(set);
         Map<String, String> map = new HashMap<String, String>();
         map.put("local", "LCL");
         map.put("argument", "ARG");
@@ -181,6 +194,18 @@ class CodeWriter implements Closeable
             	throw new IllegalArgumentException("Invalid pop segment: " + arg1);
             }
         }
+    	else if (labelCommandSet.contains(command))
+    	{
+    	    writeLabelCommand(arg1);
+    	}
+    	else if (gotoCommandSet.contains(command))
+    	{
+    	    writeGotoCommand(arg1);
+    	}
+    	else if (ifCommandSet.contains(command))
+    	{
+    	    writeIfCommand(arg1);
+    	}
         else
         {
             throw new IllegalArgumentException("Invalid command: " + command);
@@ -212,7 +237,7 @@ class CodeWriter implements Closeable
     private void writeTwoArgArithmeticComparisonCommand(String operator) throws IOException
     {
     	String endLabel = makeLabel("END");
-    	String operatorLabel = makeLabel(operator);
+    	String operatorLabel = makeInternalLabel(operator);
         pop("D", "M");
     	pop("D", "M-D");
     	writer.println("@" + operatorLabel);
@@ -295,6 +320,26 @@ class CodeWriter implements Closeable
     	writer.println("M=D");
     }
     
+    private void writeLabelCommand(String label) throws IOException
+    {
+        writer.println("(" + makeLabel(label) + ")");
+    }
+    
+    private void writeGotoCommand(String label) throws IOException
+    {
+        writer.println("@" + makeLabel(label));
+        writer.println("0;JMP");
+    }
+    
+    private void writeIfCommand(String label) throws IOException
+    {
+        writer.println("@SP");
+        writer.println("AM=M-1");
+        writer.println("D=M");
+        writer.println("@" + makeLabel(label));
+        writer.println("D;JNE");
+    }
+    
     private void push(String comp)
     {
     	if (comp != null)
@@ -314,9 +359,14 @@ class CodeWriter implements Closeable
     	writer.println(dest + "=" + comp);
     }
     
-    private String makeLabel(String label)
+    private String makeInternalLabel(String label)
     {
     	// Ensure that the label is unique by appending a suffix.
-    	return label + "$" + Integer.toString(labelCount++);
+    	return makeLabel(label) + "$" + Integer.toString(labelCount++);
+    }
+    
+    private String makeLabel(String label)
+    {
+    	return currentFunction + "$" + label;
     }
 }
