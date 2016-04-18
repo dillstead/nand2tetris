@@ -406,6 +406,7 @@ class CodeWriter implements Closeable
     
     private void writeFunctionCommand(String function, String localCount) throws IOException
     {
+        currentFunction = function;
         // Function label.
         writer.println("// -- Function label.");
         writer.println("(" + makeLabel(function) + ")");
@@ -447,9 +448,9 @@ class CodeWriter implements Closeable
         writer.println("M=D");
         // THAT, THIS, ARG, LOCAL = *(FRAME (R13) - (1..4))
         restoreSegment("THAT", "@R13", "1");
-        restoreSegment("THIS", "@R13", "1");
-        restoreSegment("ARG", "@R13", "1");
-        restoreSegment("LOCAL", "@R13", "1");
+        restoreSegment("THIS", "@R13", "2");
+        restoreSegment("ARG", "@R13", "3");
+        restoreSegment("LOCAL", "@R13", "4");
         // Goto RET
         writer.println("// -- Goto RET");
         writer.println("@R14");
