@@ -138,6 +138,7 @@ class CodeWriter implements Closeable
      */
     void setFileName(String inputFileName)
     {
+        writer.println("// New file " + inputFileName);
         this.inputFileName = inputFileName;
     }
     
@@ -368,6 +369,7 @@ class CodeWriter implements Closeable
     private void writeCallCommand(String function, String argumentCount) throws IOException
     {
         // Push return address.
+        writer.println("// -- Push return address.");
         String returnLabel = makeInternalLabel("RET");
         writer.println("@" + returnLabel);
         writer.println("D=A");
@@ -378,6 +380,7 @@ class CodeWriter implements Closeable
         saveSegment("THIS");
         saveSegment("THAT");
         // ARG = SP - n - 5
+        writer.println("// -- ARG = SP - n - 5");
         writer.println("@SP");
         writer.println("D=M");
         writer.println("@" + argumentCount);
@@ -387,25 +390,30 @@ class CodeWriter implements Closeable
         writer.println("@ARG");
         writer.println("M=D");
         // LCL = SP
+        writer.println("// -- LCL = SP");
         writer.println("@SP");
         writer.println("D=M");
         writer.println("@LCL");
         writer.println("M=D");
         // Goto function.
+        writer.println("// -- Goto function.");
         writer.println("@" + makeLabel(function));
         writer.println("M=D");
         // Return label.
+        writer.println("// -- Return label.");
         writer.println("(" + returnLabel + ")");
     }
     
     private void writeFunctionCommand(String function, String localCount) throws IOException
     {
         // Function label.
+        writer.println("// -- Function label.");
         writer.println("(" + makeLabel(function) + ")");
         // Initialize all local variables to 0.
         int j = Integer.parseInt(localCount);
         for (int i = 0; i < j; i++)
         {
+            writer.println("// -- Initialize local " + i + " to 0");
             writer.println("@0");
             writer.println("D=A");
             push("D");
@@ -415,30 +423,35 @@ class CodeWriter implements Closeable
     private void writeReturnCommand()
     {
         // FRAME (R13) = LCL
+        writer.println("// -- FRAME (R13) = LCL");
         writer.println("@LCL");
         writer.println("D=M");
         writer.println("@R13");
         writer.println("M=D");
         // RET (R14) = *(FRAME - 5)
+        writer.println("// -- RET (R14) = *(FRAME - 5)");
         writer.println("@5");
         writer.println("A=D-A");
         writer.println("D=M");
         writer.println("@R14");
         writer.println("M=D");
         // *ARG = pop()
+        writer.println("// -- *ARG = pop()");
         pop("D", "M");
         writer.println("@ARG");
         writer.println("M=D");
         // SP = ARG + 1
+        writer.println("// -- SP = ARG + 1");
         writer.println("D=A+1");
         writer.println("@SP");
         writer.println("M=D");
-        // THAT, THIS, ARG, LOCAL = *(FRAME - (1..4))
+        // THAT, THIS, ARG, LOCAL = *(FRAME (R13) - (1..4))
         restoreSegment("THAT", "@R13", "1");
         restoreSegment("THIS", "@R13", "1");
         restoreSegment("ARG", "@R13", "1");
         restoreSegment("LOCAL", "@R13", "1");
         // Goto RET
+        writer.println("// -- Goto RET");
         writer.println("@R14");
         writer.println("A=M");
         writer.println("0;JMP");
@@ -446,6 +459,7 @@ class CodeWriter implements Closeable
     
     private void writeInitialization()
     {
+        writer.println("// Initialization");
         writer.println("@256");
         writer.println("D=A");
         writer.println("@SP");
@@ -454,6 +468,7 @@ class CodeWriter implements Closeable
     
     void saveSegment(String segment)
     {
+        writer. println("// -- Push " + segment);
         writer.println("@" +  segment);
         writer.println("D=M");
         push("D");
@@ -461,6 +476,7 @@ class CodeWriter implements Closeable
     
     void restoreSegment(String segment, String localVar, String offset)
     {
+        writer.println(segment + "= *(FRAME (R13) - " + offset + ")");
         writer.println(localVar);
         if (offset.equals("1"))
         {
