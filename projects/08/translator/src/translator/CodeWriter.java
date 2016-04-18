@@ -33,6 +33,9 @@ class CodeWriter implements Closeable
     private static final Set<String> labelCommandSet;
     private static final Set<String> ifCommandSet;
     private static final Set<String> gotoCommandSet;
+    private static final Set<String> callCommandSet;
+    private static final Set<String> functionCommandSet;
+    private static final Set<String> returnCommandSet;
     static
     {
     	Set<String> set = new HashSet<String>();
@@ -66,6 +69,15 @@ class CodeWriter implements Closeable
         set = new HashSet<String>();
         set.add("if-goto");
         ifCommandSet = Collections.unmodifiableSet(set);
+        set = new HashSet<String>();
+        set.add("call");
+        callCommandSet = Collections.unmodifiableSet(set);
+        set = new HashSet<String>();
+        set.add("function");
+        functionCommandSet = Collections.unmodifiableSet(set);
+        set = new HashSet<String>();
+        set.add("return");
+        returnCommandSet = Collections.unmodifiableSet(set);
         Map<String, String> map = new HashMap<String, String>();
         map.put("local", "LCL");
         map.put("argument", "ARG");
@@ -117,6 +129,7 @@ class CodeWriter implements Closeable
     CodeWriter(File outputFile) throws IOException
     {
         writer = new PrintWriter(outputFile);
+        writeInitialization();
     }
     
     /**<
@@ -205,6 +218,18 @@ class CodeWriter implements Closeable
     	else if (ifCommandSet.contains(command))
     	{
     	    writeIfCommand(arg1);
+    	}
+    	else if (callCommandSet.contains(command))
+    	{
+    	    writeCallCommand(arg1, arg2);
+    	}
+    	else if (functionCommandSet.contains(command))
+    	{
+    	    writeFunctionCommand(arg1, arg2);
+    	}
+    	else if (returnCommandSet.contains(command))
+    	{
+    	    writeReturnCommand();
     	}
         else
         {
@@ -340,13 +365,127 @@ class CodeWriter implements Closeable
         writer.println("D;JNE");
     }
     
+    private void writeCallCommand(String function, String argumentCount) throws IOException
+    {
+        // Push return address.
+        String returnLabel = makeInternalLabel("RET");
+        writer.println("@" + returnLabel);
+        writer.println("D=A");
+        push("D");
+        // Push LCL, ARG, THIS, and THAT.
+        saveSegment("LCL");
+        saveSegment("ARG");
+        saveSegment("THIS");
+        saveSegment("THAT");
+        // ARG = SP - n - 5
+        writer.println("@SP");
+        writer.println("D=M");
+        writer.println("@" + argumentCount);
+        writer.println("D=D-A");
+        writer.println("@5");
+        writer.println("D=D-A");
+        writer.println("@ARG");
+        writer.println("M=D");
+        // LCL = SP
+        writer.println("@SP");
+        writer.println("D=M");
+        writer.println("@LCL");
+        writer.println("M=D");
+        // Goto function.
+        writer.println("@" + makeLabel(function));
+        writer.println("M=D");
+        // Return label.
+        writer.println("(" + returnLabel + ")");
+    }
+    
+    private void writeFunctionCommand(String function, String localCount) throws IOException
+    {
+        // Function label.
+        writer.println("(" + makeLabel(function) + ")");
+        // Initialize all local variables to 0.
+        int j = Integer.parseInt(localCount);
+        for (int i = 0; i < j; i++)
+        {
+            writer.println("@0");
+            writer.println("D=A");
+            push("D");
+        }
+    }
+    
+    private void writeReturnCommand()
+    {
+        // FRAME (R13) = LCL
+        writer.println("@LCL");
+        writer.println("D=M");
+        writer.println("@R13");
+        writer.println("M=D");
+        // RET (R14) = *(FRAME - 5)
+        writer.println("@5");
+        writer.println("A=D-A");
+        writer.println("D=M");
+        writer.println("@R14");
+        writer.println("M=D");
+        // *ARG = pop()
+        pop("D", "M");
+        writer.println("@ARG");
+        writer.println("M=D");
+        // SP = ARG + 1
+        writer.println("D=A+1");
+        writer.println("@SP");
+        writer.println("M=D");
+        // THAT, THIS, ARG, LOCAL = *(FRAME - (1..4))
+        restoreSegment("THAT", "@R13", "1");
+        restoreSegment("THIS", "@R13", "1");
+        restoreSegment("ARG", "@R13", "1");
+        restoreSegment("LOCAL", "@R13", "1");
+        // Goto RET
+        writer.println("@R14");
+        writer.println("A=M");
+        writer.println("0;JMP");
+    }
+    
+    private void writeInitialization()
+    {
+        writer.println("@256");
+        writer.println("D=A");
+        writer.println("@SP");
+        writer.println("M=D");
+    }
+    
+    void saveSegment(String segment)
+    {
+        writer.println("@" +  segment);
+        writer.println("D=M");
+        push("D");
+    }
+    
+    void restoreSegment(String segment, String localVar, String offset)
+    {
+        writer.println(localVar);
+        if (offset.equals("1"))
+        {
+            // Optimize for the fact that 1 can be subtracted in a single
+            // instruction.
+            writer.println("A=M-1");
+        }
+        else
+        {
+            writer.println("D=M");                
+            writer.println("@" + offset);
+            writer.println("A=D-A");
+        }
+        writer.println("D=M");
+        writer.println("@" + segment);
+        writer.println("M=D");
+    }
+    
     private void push(String comp)
     {
     	if (comp != null)
     	{
     		writer.println("@SP");
     		writer.println("A=M");
-    		writer.println("M=D");
+    		writer.println("M=" + comp);
     	}
     	writer.println("@SP");
     	writer.println("M=M+1");
