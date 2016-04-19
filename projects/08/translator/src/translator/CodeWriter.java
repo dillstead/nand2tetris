@@ -16,12 +16,14 @@ import java.util.Set;
  * @author kujawk
  *
  */
-class CodeWriter implements Closeable
+final class CodeWriter implements Closeable
 {
     private final PrintWriter writer;
+    private final boolean outputLineNumbers;
     private String inputFileName;
     private String currentFunction = "";
     private int labelCount;
+    private int lineNumber = 1;
     
     private static final Map<String, String> segmentMap;
     private static final Set<String> realSegmentSet;
@@ -128,8 +130,14 @@ class CodeWriter implements Closeable
      */
     CodeWriter(File outputFile) throws IOException
     {
+    	this(outputFile, false);
+    }
+    
+    CodeWriter(File outputFile, boolean outputLineNumbers) throws IOException
+    {
         writer = new PrintWriter(outputFile);
         writeInitialization();
+        this.outputLineNumbers = outputLineNumbers;
     }
     
     /**<
@@ -151,6 +159,12 @@ class CodeWriter implements Closeable
      */
     void writeCommand(String command, String arg1, String arg2) throws IOException
     {
+    	if (outputLineNumbers)
+    	{
+    		String ln = Integer.toString(lineNumber++);
+    		writer.println("(" + ln + ")");
+    		writer.println("@" + ln);
+    	}
     	writer.print("// " + command);
     	writer.print(arg1 != null ? " " + arg1 : "");
     	writer.println(arg2 != null ? " " + arg2 : "");
@@ -477,7 +491,7 @@ class CodeWriter implements Closeable
     
     void restoreSegment(String segment, String localVar, String offset)
     {
-        writer.println(segment + "= *(FRAME (R13) - " + offset + ")");
+        writer.println("//" + segment + "= *(FRAME (R13) - " + offset + ")");
         writer.println(localVar);
         if (offset.equals("1"))
         {

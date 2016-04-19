@@ -8,7 +8,7 @@ import java.io.FilenameFilter;
  * @author kujawk
  *
  */
-public class Translator 
+final public class Translator 
 {
     /**
      * Runs the translator VM files.
@@ -16,15 +16,16 @@ public class Translator
      */
     public static void main(String args[])
     {
-    	if (args.length != 1)
+    	boolean outputLineNumbers = args.length == 2 ? true : false;
+    	if (args.length != 1 && args.length != 2)
     	{
-    		System.out.println("Error: no input file(s) specified");
+    		System.out.println("Usage: <input file> [outputLineNumbers]");
     		return;
     	}
     	File[] inputFiles = getInputFiles(args[0]);
     	File outputFile = getOutputFile(args[0]);
     	System.out.println("Output file: " + outputFile.getName());
-    	try (CodeWriter codeWriter = new CodeWriter(outputFile))
+    	try (CodeWriter codeWriter = new CodeWriter(outputFile, outputLineNumbers))
     	{
 	        for (File inputFile : inputFiles)
 	        {

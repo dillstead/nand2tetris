@@ -12,7 +12,7 @@ import java.io.IOException;
  * @author kujawk
  *
  */
-class Parser implements Closeable
+final class Parser implements Closeable
 {
     private final BufferedReader reader;
     private String[] tokens;
