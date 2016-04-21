@@ -19,11 +19,10 @@ import java.util.Set;
 final class CodeWriter implements Closeable
 {
     private final PrintWriter writer;
-    private final boolean outputLineNumbers;
     private String inputFileName;
     private String currentFunction = "";
     private int labelCount;
-    private int lineNumber = 1;
+    private int address = 0;
     
     private static final Map<String, String> segmentMap;
     private static final Set<String> realSegmentSet;
@@ -130,14 +129,8 @@ final class CodeWriter implements Closeable
      */
     CodeWriter(File outputFile) throws IOException
     {
-    	this(outputFile, false);
-    }
-    
-    CodeWriter(File outputFile, boolean outputLineNumbers) throws IOException
-    {
-        writer = new PrintWriter(outputFile);
-        writeInitialization();
-        this.outputLineNumbers = outputLineNumbers;
+    	writer = new PrintWriter(outputFile);
+        //writeInitialization();
     }
     
     /**<
@@ -146,7 +139,7 @@ final class CodeWriter implements Closeable
      */
     void setFileName(String inputFileName)
     {
-        writer.println("// New file " + inputFileName);
+        writeComment("New file " + inputFileName);
         this.inputFileName = inputFileName;
     }
     
@@ -159,15 +152,7 @@ final class CodeWriter implements Closeable
      */
     void writeCommand(String command, String arg1, String arg2) throws IOException
     {
-    	if (outputLineNumbers)
-    	{
-    		String ln = Integer.toString(lineNumber++);
-    		writer.println("(" + ln + ")");
-    		writer.println("@" + ln);
-    	}
-    	writer.print("// " + command);
-    	writer.print(arg1 != null ? " " + arg1 : "");
-    	writer.println(arg2 != null ? " " + arg2 : "");
+    	writeComment(command + (arg1 != null ? " " + arg1 : "") + (arg2 != null ? " " + arg2 : "")); 
     	if (twoArgArithmeticCommandSet.contains(command))
     	{
     		writeTwoArgArithmeticCommand(arithmeticOperatorMap.get(command));
@@ -280,113 +265,113 @@ final class CodeWriter implements Closeable
     	String operatorLabel = makeInternalLabel(operator);
         pop("D", "M");
     	pop("D", "M-D");
-    	writer.println("@" + operatorLabel);
-    	writer.println("D;" + operator);
-    	writer.println("D=0");
-    	writer.println("@" + endLabel);
-    	writer.println("0;JMP");
-    	writer.println("(" + operatorLabel + ")");
-    	writer.println("D=-1");
-    	writer.println("(" + endLabel + ")");
+    	writeInstruction("@" + operatorLabel);
+    	writeInstruction("D;" + operator);
+    	writeInstruction("D=0");
+    	writeInstruction("@" + endLabel);
+    	writeInstruction("0;JMP");
+    	writeLabel(operatorLabel);
+    	writeInstruction("D=-1");
+    	writeLabel(endLabel);
     	push("D");
     }
 
     private void writePushRealSegmentCommand(String segment, String offset) throws IOException
     {
-    	writer.println("@" + segment);
-    	writer.println("D=M");
-    	writer.println("@" + offset);
-    	writer.println("A=A+D");
-    	writer.println("D=M");
+    	writeInstruction("@" + segment);
+    	writeInstruction("D=M");
+    	writeInstruction("@" + offset);
+    	writeInstruction("A=A+D");
+    	writeInstruction("D=M");
     	push("D");
     }
 
     private void writePushVirtualSegmentCommand(String segment, String offset) throws IOException
     {
-    	writer.println("@" + segment);
-    	writer.println("D=A");
-    	writer.println("@" + offset);
-    	writer.println("A=A+D");
-    	writer.println("D=M");
+    	writeInstruction("@" + segment);
+    	writeInstruction("D=A");
+    	writeInstruction("@" + offset);
+    	writeInstruction("A=A+D");
+    	writeInstruction("D=M");
     	push("D");
     }
 
     private void writePushConstantSegmentCommand(String constant) throws IOException
     {
-    	writer.println("@" + constant);
-    	writer.println("D=A");
+    	writeInstruction("@" + constant);
+    	writeInstruction("D=A");
     	push("D");
     }
 
     private void writePushStaticSegmentCommand(String offset) throws IOException
     {
-    	writer.println("@" + inputFileName + "." + offset);
-    	writer.println("D=M");
+    	writeInstruction("@" + inputFileName + "." + offset);
+    	writeInstruction("D=M");
     	push("D");
     }
 
     private void writePopRealSegmentCommand(String segment, String offset) throws IOException
     {
-    	writer.println("@" + segment);
-    	writer.println("D=M");
-    	writer.println("@" + offset);
-    	writer.println("D=D+A");
-    	writer.println("@R13");
-    	writer.println("M=D");
+    	writeInstruction("@" + segment);
+    	writeInstruction("D=M");
+    	writeInstruction("@" + offset);
+    	writeInstruction("D=D+A");
+    	writeInstruction("@R13");
+    	writeInstruction("M=D");
     	pop("D", "M");
-    	writer.println("@R13");
-    	writer.println("A=M");
-    	writer.println("M=D");
+    	writeInstruction("@R13");
+    	writeInstruction("A=M");
+    	writeInstruction("M=D");
     }
 
     private void writePopVirtualSegmentCommand(String segment, String offset) throws IOException
     {
-    	writer.println("@" + segment);
-    	writer.println("D=A");
-    	writer.println("@" + offset);
-    	writer.println("D=D+A");
-    	writer.println("@R13");
-    	writer.println("M=D");
+    	writeInstruction("@" + segment);
+    	writeInstruction("D=A");
+    	writeInstruction("@" + offset);
+    	writeInstruction("D=D+A");
+    	writeInstruction("@R13");
+    	writeInstruction("M=D");
     	pop("D", "M");
-    	writer.println("@R13");
-    	writer.println("A=M");
-    	writer.println("M=D");
+    	writeInstruction("@R13");
+    	writeInstruction("A=M");
+    	writeInstruction("M=D");
     }
 
     private void writePopStaticSegmentCommand(String segment, String offset) throws IOException
     {
     	pop("D", "M");
-    	writer.println("@" + inputFileName + "." + offset);
-    	writer.println("M=D");
+    	writeInstruction("@" + inputFileName + "." + offset);
+    	writeInstruction("M=D");
     }
     
     private void writeLabelCommand(String label) throws IOException
     {
-        writer.println("(" + makeLabel(label) + ")");
+    	writeLabel(label);
     }
     
     private void writeGotoCommand(String label) throws IOException
     {
-        writer.println("@" + makeLabel(label));
-        writer.println("0;JMP");
+        writeInstruction("@" + makeLabel(label));
+        writeInstruction("0;JMP");
     }
     
     private void writeIfCommand(String label) throws IOException
     {
-        writer.println("@SP");
-        writer.println("AM=M-1");
-        writer.println("D=M");
-        writer.println("@" + makeLabel(label));
-        writer.println("D;JNE");
+        writeInstruction("@SP");
+        writeInstruction("AM=M-1");
+        writeInstruction("D=M");
+        writeInstruction("@" + makeLabel(label));
+        writeInstruction("D;JNE");
     }
     
     private void writeCallCommand(String function, String argumentCount) throws IOException
     {
         // Push return address.
-        writer.println("// -- Push return address.");
+        writeComment(" -- Push return address.");
         String returnLabel = makeInternalLabel("RET");
-        writer.println("@" + returnLabel);
-        writer.println("D=A");
+        writeInstruction("@" + returnLabel);
+        writeInstruction("D=A");
         push("D");
         // Push LCL, ARG, THIS, and THAT.
         saveSegment("LCL");
@@ -394,43 +379,43 @@ final class CodeWriter implements Closeable
         saveSegment("THIS");
         saveSegment("THAT");
         // ARG = SP - n - 5
-        writer.println("// -- ARG = SP - n - 5");
-        writer.println("@SP");
-        writer.println("D=M");
-        writer.println("@" + argumentCount);
-        writer.println("D=D-A");
-        writer.println("@5");
-        writer.println("D=D-A");
-        writer.println("@ARG");
-        writer.println("M=D");
+        writeComment(" -- ARG = SP - n - 5");
+        writeInstruction("@SP");
+        writeInstruction("D=M");
+        writeInstruction("@" + argumentCount);
+        writeInstruction("D=D-A");
+        writeInstruction("@5");
+        writeInstruction("D=D-A");
+        writeInstruction("@ARG");
+        writeInstruction("M=D");
         // LCL = SP
-        writer.println("// -- LCL = SP");
-        writer.println("@SP");
-        writer.println("D=M");
-        writer.println("@LCL");
-        writer.println("M=D");
+        writeComment(" -- LCL = SP");
+        writeInstruction("@SP");
+        writeInstruction("D=M");
+        writeInstruction("@LCL");
+        writeInstruction("M=D");
         // Goto function.
-        writer.println("// -- Goto function.");
-        writer.println("@" + makeLabel(function));
-        writer.println("M=D");
+        writeComment(" -- Goto function.");
+        writeInstruction("@" + makeLabel(function));
+        writeInstruction("M=D");
         // Return label.
-        writer.println("// -- Return label.");
-        writer.println("(" + returnLabel + ")");
+        writeComment(" -- Return label.");
+        writeLabel(returnLabel);
     }
     
     private void writeFunctionCommand(String function, String localCount) throws IOException
     {
         currentFunction = function;
         // Function label.
-        writer.println("// -- Function label.");
-        writer.println("(" + makeLabel(function) + ")");
+        writeComment(" -- Function label.");
+        writeLabel(makeLabel(function));
         // Initialize all local variables to 0.
         int j = Integer.parseInt(localCount);
         for (int i = 0; i < j; i++)
         {
-            writer.println("// -- Initialize local " + i + " to 0");
-            writer.println("@0");
-            writer.println("D=A");
+            writeComment(" -- Initialize local " + i + " to 0");
+            writeInstruction("@0");
+            writeInstruction("D=A");
             push("D");
         }
     }
@@ -438,95 +423,95 @@ final class CodeWriter implements Closeable
     private void writeReturnCommand()
     {
         // FRAME (R13) = LCL
-        writer.println("// -- FRAME (R13) = LCL");
-        writer.println("@LCL");
-        writer.println("D=M");
-        writer.println("@R13");
-        writer.println("M=D");
+        writeComment(" -- FRAME (R13) = LCL");
+        writeInstruction("@LCL");
+        writeInstruction("D=M");
+        writeInstruction("@R13");
+        writeInstruction("M=D");
         // RET (R14) = *(FRAME - 5)
-        writer.println("// -- RET (R14) = *(FRAME - 5)");
-        writer.println("@5");
-        writer.println("A=D-A");
-        writer.println("D=M");
-        writer.println("@R14");
-        writer.println("M=D");
+        writeComment(" -- RET (R14) = *(FRAME - 5)");
+        writeInstruction("@5");
+        writeInstruction("A=D-A");
+        writeInstruction("D=M");
+        writeInstruction("@R14");
+        writeInstruction("M=D");
         // *ARG = pop()
-        writer.println("// -- *ARG = pop()");
+        writeComment(" -- *ARG = pop()");
         pop("D", "M");
-        writer.println("@ARG");
-        writer.println("M=D");
+        writeInstruction("@ARG");
+        writeInstruction("M=D");
         // SP = ARG + 1
-        writer.println("// -- SP = ARG + 1");
-        writer.println("D=A+1");
-        writer.println("@SP");
-        writer.println("M=D");
+        writeComment(" -- SP = ARG + 1");
+        writeInstruction("D=A+1");
+        writeInstruction("@SP");
+        writeInstruction("M=D");
         // THAT, THIS, ARG, LOCAL = *(FRAME (R13) - (1..4))
         restoreSegment("THAT", "@R13", "1");
         restoreSegment("THIS", "@R13", "2");
         restoreSegment("ARG", "@R13", "3");
         restoreSegment("LOCAL", "@R13", "4");
         // Goto RET
-        writer.println("// -- Goto RET");
-        writer.println("@R14");
-        writer.println("A=M");
-        writer.println("0;JMP");
+        writeComment(" -- Goto RET");
+        writeInstruction("@R14");
+        writeInstruction("A=M");
+        writeInstruction("0;JMP");
     }
     
     private void writeInitialization()
     {
-        writer.println("// Initialization");
-        writer.println("@256");
-        writer.println("D=A");
-        writer.println("@SP");
-        writer.println("M=D");
+        writeComment("Initialization");
+        writeInstruction("@256");
+        writeInstruction("D=A");
+        writeInstruction("@SP");
+        writeInstruction("M=D");
     }
     
     void saveSegment(String segment)
     {
-        writer. println("// -- Push " + segment);
-        writer.println("@" +  segment);
-        writer.println("D=M");
+        writeComment(" -- Push " + segment);
+        writeInstruction("@" +  segment);
+        writeInstruction("D=M");
         push("D");
     }
     
     void restoreSegment(String segment, String localVar, String offset)
     {
-        writer.println("//" + segment + "= *(FRAME (R13) - " + offset + ")");
-        writer.println(localVar);
+        writeComment(" -- " + segment + "= *(FRAME (R13) - " + offset + ")");
+        writeInstruction(localVar);
         if (offset.equals("1"))
         {
             // Optimize for the fact that 1 can be subtracted in a single
             // instruction.
-            writer.println("A=M-1");
+            writeInstruction("A=M-1");
         }
         else
         {
-            writer.println("D=M");                
-            writer.println("@" + offset);
-            writer.println("A=D-A");
+            writeInstruction("D=M");                
+            writeInstruction("@" + offset);
+            writeInstruction("A=D-A");
         }
-        writer.println("D=M");
-        writer.println("@" + segment);
-        writer.println("M=D");
+        writeInstruction("D=M");
+        writeInstruction("@" + segment);
+        writeInstruction("M=D");
     }
     
     private void push(String comp)
     {
     	if (comp != null)
     	{
-    		writer.println("@SP");
-    		writer.println("A=M");
-    		writer.println("M=" + comp);
+    		writeInstruction("@SP");
+    		writeInstruction("A=M");
+    		writeInstruction("M=" + comp);
     	}
-    	writer.println("@SP");
-    	writer.println("M=M+1");
+    	writeInstruction("@SP");
+    	writeInstruction("M=M+1");
     }
     
     private void pop(String dest, String comp)
     {
-    	writer.println("@SP");
-    	writer.println("AM=M-1");
-    	writer.println(dest + "=" + comp);
+    	writeInstruction("@SP");
+    	writeInstruction("AM=M-1");
+    	writeInstruction(dest + "=" + comp);
     }
     
     private String makeInternalLabel(String label)
@@ -538,5 +523,21 @@ final class CodeWriter implements Closeable
     private String makeLabel(String label)
     {
     	return currentFunction + "$" + label;
+    }
+    
+    private void writeInstruction(String instruction)
+    {
+    	writeComment("ROM address " + address++);
+    	writer.println(instruction);
+    }
+    
+    private void writeLabel(String label)
+    {
+    	writer.println("(" + label + ")");
+    }
+    
+    private void writeComment(String comment)
+    {
+    	writer.println("// " + comment);
     }
 }

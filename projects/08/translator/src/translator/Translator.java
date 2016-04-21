@@ -16,16 +16,15 @@ final public class Translator
      */
     public static void main(String args[])
     {
-    	boolean outputLineNumbers = args.length == 2 ? true : false;
-    	if (args.length != 1 && args.length != 2)
+    	if (args.length != 1)
     	{
-    		System.out.println("Usage: <input file> [outputLineNumbers]");
+    		System.out.println("Usage: <input file>");
     		return;
     	}
     	File[] inputFiles = getInputFiles(args[0]);
     	File outputFile = getOutputFile(args[0]);
     	System.out.println("Output file: " + outputFile.getName());
-    	try (CodeWriter codeWriter = new CodeWriter(outputFile, outputLineNumbers))
+    	try (CodeWriter codeWriter = new CodeWriter(outputFile))
     	{
 	        for (File inputFile : inputFiles)
 	        {
