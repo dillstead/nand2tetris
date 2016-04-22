@@ -439,6 +439,7 @@ final class CodeWriter implements Closeable
         writeComment(" -- *ARG = pop()");
         pop("D", "M");
         writeInstruction("@ARG");
+        writeInstruction("A=M");
         writeInstruction("M=D");
         // SP = ARG + 1
         writeComment(" -- SP = ARG + 1");
@@ -449,7 +450,7 @@ final class CodeWriter implements Closeable
         restoreSegment("THAT", "@R13", "1");
         restoreSegment("THIS", "@R13", "2");
         restoreSegment("ARG", "@R13", "3");
-        restoreSegment("LOCAL", "@R13", "4");
+        restoreSegment("LCL", "@R13", "4");
         // Goto RET
         writeComment(" -- Goto RET");
         writeInstruction("@R14");
