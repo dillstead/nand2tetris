@@ -21,7 +21,7 @@ final class CodeWriter implements Closeable
     private final PrintWriter writer;
     private String inputFileName;
     private String currentFunction = "";
-    private int labelCount;
+    private int labelCount = 0;
     private int address = 0;
     
     private static final Map<String, String> segmentMap;
@@ -130,7 +130,7 @@ final class CodeWriter implements Closeable
     CodeWriter(File outputFile) throws IOException
     {
     	writer = new PrintWriter(outputFile);
-        //writeInitialization();
+        writeInitialization();
     }
     
     /**<
@@ -261,7 +261,7 @@ final class CodeWriter implements Closeable
     
     private void writeTwoArgArithmeticComparisonCommand(String operator) throws IOException
     {
-    	String endLabel = makeLabel("END");
+    	String endLabel = makeInternalLabel("END");
     	String operatorLabel = makeInternalLabel(operator);
         pop("D", "M");
     	pop("D", "M-D");
@@ -347,7 +347,7 @@ final class CodeWriter implements Closeable
     
     private void writeLabelCommand(String label) throws IOException
     {
-    	writeLabel(label);
+    	writeLabel(makeLabel(label));
     }
     
     private void writeGotoCommand(String label) throws IOException
@@ -396,7 +396,7 @@ final class CodeWriter implements Closeable
         writeInstruction("M=D");
         // Goto function.
         writeComment(" -- Goto function.");
-        writeInstruction("@" + makeLabel(function));
+        writeInstruction("@" + function);
         writeInstruction("M=D");
         // Return label.
         writeComment(" -- Return label.");
@@ -408,7 +408,7 @@ final class CodeWriter implements Closeable
         currentFunction = function;
         // Function label.
         writeComment(" -- Function label.");
-        writeLabel(makeLabel(function));
+        writeLabel(function);
         // Initialize all local variables to 0.
         int j = Integer.parseInt(localCount);
         for (int i = 0; i < j; i++)
@@ -518,7 +518,7 @@ final class CodeWriter implements Closeable
     private String makeInternalLabel(String label)
     {
     	// Ensure that the label is unique by appending a suffix.
-    	return makeLabel(label) + "$" + Integer.toString(labelCount++);
+    	return label + "$" + Integer.toString(labelCount++);
     }
     
     private String makeLabel(String label)
