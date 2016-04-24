@@ -130,10 +130,10 @@ final class CodeWriter implements Closeable
     CodeWriter(File outputFile) throws IOException
     {
     	writer = new PrintWriter(outputFile);
-        //writeInitialization();
+        writeInitialization();
     }
     
-    /**
+    /**<
      * Informs the code writer that the translation of a new VM file has started.
      * @param inputFileName File name of the new VM file.
      */
