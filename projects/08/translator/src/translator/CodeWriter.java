@@ -130,10 +130,10 @@ final class CodeWriter implements Closeable
     CodeWriter(File outputFile) throws IOException
     {
     	writer = new PrintWriter(outputFile);
-        writeInitialization();
+        //writeInitialization();
     }
     
-    /**<
+    /**
      * Informs the code writer that the translation of a new VM file has started.
      * @param inputFileName File name of the new VM file.
      */
@@ -397,7 +397,7 @@ final class CodeWriter implements Closeable
         // Goto function.
         writeComment(" -- Goto function.");
         writeInstruction("@" + function);
-        writeInstruction("M=D");
+        writeInstruction("0;JMP");
         // Return label.
         writeComment(" -- Return label.");
         writeLabel(returnLabel);
@@ -518,7 +518,7 @@ final class CodeWriter implements Closeable
     private String makeInternalLabel(String label)
     {
     	// Ensure that the label is unique by appending a suffix.
-    	return label + "$" + Integer.toString(labelCount++);
+    	return makeLabel(label) + "$" + Integer.toString(labelCount++);
     }
     
     private String makeLabel(String label)
