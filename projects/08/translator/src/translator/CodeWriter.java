@@ -150,7 +150,7 @@ final class CodeWriter implements Closeable
      * @param arg2 Optional second command argument.
      * @throws IOException If writning to the output file failed.
      */
-    void writeCommand(String command, String arg1, String arg2) throws IOException
+    void writeCommand(String command, String arg1, String arg2)
     {
     	writeComment(command + (arg1 != null ? " " + arg1 : "") + (arg2 != null ? " " + arg2 : "")); 
     	if (twoArgArithmeticCommandSet.contains(command))
@@ -246,20 +246,20 @@ final class CodeWriter implements Closeable
         writer.close();
     }
     
-    private void writeTwoArgArithmeticCommand(String operator) throws IOException
+    private void writeTwoArgArithmeticCommand(String operator)
     {
     	pop("D", "M");
     	pop("M", "M" + operator + "D");
     	push(null);
     }
     
-    private void writeSingleArgArithmeticCommand(String operator) throws IOException
+    private void writeSingleArgArithmeticCommand(String operator) 
     {
     	pop("M", operator + "M");
     	push(null);
     }
     
-    private void writeTwoArgArithmeticComparisonCommand(String operator) throws IOException
+    private void writeTwoArgArithmeticComparisonCommand(String operator)
     {
     	String endLabel = makeInternalLabel("END");
     	String operatorLabel = makeInternalLabel(operator);
@@ -276,7 +276,7 @@ final class CodeWriter implements Closeable
     	push("D");
     }
 
-    private void writePushRealSegmentCommand(String segment, String offset) throws IOException
+    private void writePushRealSegmentCommand(String segment, String offset)
     {
     	writeInstruction("@" + segment);
     	writeInstruction("D=M");
@@ -286,7 +286,7 @@ final class CodeWriter implements Closeable
     	push("D");
     }
 
-    private void writePushVirtualSegmentCommand(String segment, String offset) throws IOException
+    private void writePushVirtualSegmentCommand(String segment, String offset)
     {
     	writeInstruction("@" + segment);
     	writeInstruction("D=A");
@@ -296,21 +296,21 @@ final class CodeWriter implements Closeable
     	push("D");
     }
 
-    private void writePushConstantSegmentCommand(String constant) throws IOException
+    private void writePushConstantSegmentCommand(String constant)
     {
     	writeInstruction("@" + constant);
     	writeInstruction("D=A");
     	push("D");
     }
 
-    private void writePushStaticSegmentCommand(String offset) throws IOException
+    private void writePushStaticSegmentCommand(String offset)
     {
     	writeInstruction("@" + inputFileName + "." + offset);
     	writeInstruction("D=M");
     	push("D");
     }
 
-    private void writePopRealSegmentCommand(String segment, String offset) throws IOException
+    private void writePopRealSegmentCommand(String segment, String offset)
     {
     	writeInstruction("@" + segment);
     	writeInstruction("D=M");
@@ -324,7 +324,7 @@ final class CodeWriter implements Closeable
     	writeInstruction("M=D");
     }
 
-    private void writePopVirtualSegmentCommand(String segment, String offset) throws IOException
+    private void writePopVirtualSegmentCommand(String segment, String offset)
     {
     	writeInstruction("@" + segment);
     	writeInstruction("D=A");
@@ -338,25 +338,25 @@ final class CodeWriter implements Closeable
     	writeInstruction("M=D");
     }
 
-    private void writePopStaticSegmentCommand(String segment, String offset) throws IOException
+    private void writePopStaticSegmentCommand(String segment, String offset)
     {
     	pop("D", "M");
     	writeInstruction("@" + inputFileName + "." + offset);
     	writeInstruction("M=D");
     }
     
-    private void writeLabelCommand(String label) throws IOException
+    private void writeLabelCommand(String label)
     {
     	writeLabel(makeLabel(label));
     }
     
-    private void writeGotoCommand(String label) throws IOException
+    private void writeGotoCommand(String label)
     {
         writeInstruction("@" + makeLabel(label));
         writeInstruction("0;JMP");
     }
     
-    private void writeIfCommand(String label) throws IOException
+    private void writeIfCommand(String label)    
     {
         writeInstruction("@SP");
         writeInstruction("AM=M-1");
@@ -365,7 +365,7 @@ final class CodeWriter implements Closeable
         writeInstruction("D;JNE");
     }
     
-    private void writeCallCommand(String function, String argumentCount) throws IOException
+    private void writeCallCommand(String function, String argumentCount)
     {
         // Push return address.
         writeComment(" -- Push return address.");
@@ -403,7 +403,7 @@ final class CodeWriter implements Closeable
         writeLabel(returnLabel);
     }
     
-    private void writeFunctionCommand(String function, String localCount) throws IOException
+    private void writeFunctionCommand(String function, String localCount)
     {
         currentFunction = function;
         // Function label.
@@ -465,6 +465,7 @@ final class CodeWriter implements Closeable
         writeInstruction("D=A");
         writeInstruction("@SP");
         writeInstruction("M=D");
+        writeCommand("call", "Sys.init", "0");
     }
     
     void saveSegment(String segment)
