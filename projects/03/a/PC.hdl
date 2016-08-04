@@ -16,5 +16,31 @@ CHIP PC {
     OUT out[16];
 
     PARTS:
-    // Put your code here:
+    // If reset, load, or inc is set to 1, the register
+    // must be loaded with a value.
+    Or (a=load, b=inc, out=loadOrInc);
+    Or (a=loadOrInc, b=reset, out=regLoad);
+
+    // The input to the register is:
+    //  0 if:
+    //   (reset=1, load=0/1, inc=0/1)
+    //  circuit input if:
+    //   (reset=0, load=1, inc=0/1)
+    //  inc output if:
+    //   (reset=0, load=0, inc=1)
+    Mux16 (a=incOut, b=in, sel=load, out=loadOrIncRegIn);
+    Not16 (in[0]=reset, in[1]=reset, in[2]=reset, in[3]=reset,
+    in[4]=reset, in[5]=reset, in[6]=reset, in[7]=reset,
+    in[8]=reset, in[9]=reset, in[10]=reset, in[11]=reset,
+    in[12]=reset, in[13]=reset, in[14]=reset, in[15]=reset, 
+    out=resetRegIn);
+    And16 (a=loadOrIncRegIn, b=resetRegIn, out=regIn);
+
+    // The output of the register is the output of the circuit
+    // and the input to the incrementer.  The incrementer
+    // needs to increment it in case the inc bit is 1.
+    Register (in=regIn, load=regLoad, out=out, out=incIn);
+    // The output of the incrementer is routed back to the input
+    // of the register in case it needs to be stored.
+    Inc16 (in=incIn, out=incOut);
 }
