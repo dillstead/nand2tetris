@@ -27,5 +27,19 @@ CHIP Memory {
     OUT out[16];
 
     PARTS:
-    // Put your code here:
+    //  If high bit is
+    //  0 - load RAM
+    //  1 - load Screen
+    Not (in=address[14], out=maybeLoadRam);
+    And (a=load, b=maybeLoadRam, out=loadRam);
+    And (a=load, b=address[14], out=loadScreen);
+    RAM16K (in=in, load=loadRam, address=address[0..13], out=ramOut);
+    Screen (in=in, load=loadScreen, address=address[0..12], out=screenOut);
+    Keyboard (out=keyboardOut);
+    // If high bits are
+    // 0  - output RAM
+    // 10 - output Screen
+    // 11 - ouptut Keyboard
+    Mux16 (a=screenOut, b=keyboardOut, sel=address[13], out=screenOrKeyboardOut);
+    Mux16 (a=ramOut, b=screenOrKeyboardOut, sel=address[14], out=out);
 }
