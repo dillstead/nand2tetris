@@ -1,0 +1,174 @@
+// Screen 
+// 130 - left arrow
+// 132 - right arrow
+// 0...511 cols
+// 0...255 rows
+// (0, 0) is upper left
+// 0,10  71,10
+// chars are 8x11
+
+
+class Breakout
+{
+    static Breakout instance;
+    field boolean exit;
+    field Paddle paddle;
+    field Ball ball;
+    field Bricks bricks;
+    field int score;
+
+    function void newInstance() 
+    {
+        let instance = Breakout.new();
+
+        return;
+    }
+
+    function Breakout getInstance() 
+    {
+        return instance;
+    }
+
+    constructor Breakout new() 
+    {
+        var int dx, dy;
+        var String boo;
+
+	do Screen.clearScreen();
+
+        let dx = 1;
+        let dy = -1;
+        let paddle = Paddle.new(230, 248, 50, 7, this);
+        let bricks = Bricks.new(0, 12, 512, 64, 8, 4, this);
+        let ball = Ball.new(253, 125, 5, dx, dy, this, paddle, bricks);
+        let score = 0;
+	
+        do Output.moveCursor(0, 0);
+	do Output.printString("Score: 0");
+
+        return this;
+    }
+
+    method void dispose() 
+    {
+        do bricks.dispose();
+        do ball.dispose();
+	do paddle.dispose();
+        do Memory.deAlloc(this);
+
+        return;
+    }
+
+    method int getLeftBound()
+    {
+        return 0;
+    }
+
+    method int getRightBound()
+    {
+        return 511;
+    }
+
+    method int getTopBound()
+    {
+        return 11;
+    }
+
+    method int getBottomBound()
+    {
+        return 247;
+    }
+
+    method void gameOver()
+    {
+        let exit = true;
+
+	//do Screen.clearScreen();
+        //do Output.moveCursor(11, 27);
+	//do Output.printString("Game Over");
+
+        return;
+    }
+
+    method void updateScore(int Ascore)
+    {
+        let score = score + Ascore;
+
+	do Output.moveCursor(0,7);
+	do Output.printInt(score);
+
+        return;
+    }
+
+    method void updateMessage(String message)
+    {
+        do Screen.setColor(false);
+	do Screen.drawRectangle(88, 0, 511, 11);
+        do Output.moveCursor(0, 11);
+	do Output.printString(message);
+        
+        return;
+    }
+
+    method void play() 
+    {
+        var char prevKey;
+        var char key;
+        var int keyDelay;
+        var int ballDelay;
+
+        let exit = false;
+        let prevKey = 0;
+        let keyDelay = 200;
+        let ballDelay = 200;
+
+        while (~exit) 
+        {
+            let key = Keyboard.keyPressed();
+
+            if (prevKey = key)
+            {
+                let keyDelay = keyDelay - 1;
+            }
+            else
+            {
+                // Immediately process key
+                let keyDelay = 0;
+            }
+
+            if (keyDelay = 0)
+            {
+                // Q or q
+                if ((key = 81) | (key = 113))
+                {
+                    let exit = true;
+                }
+                if (key = 130)
+                {
+                    // Left arrow
+                    do paddle.move(1);
+                }
+                if (key = 132)
+                {
+                    // Right arrow
+                    do paddle.move(2);
+                }
+
+                let keyDelay = 200;
+                let prevKey = key;
+            }
+
+            if (ballDelay = 0)
+            {
+                do ball.move();
+                let ballDelay = 200;
+            }
+            else
+            {
+                let ballDelay = ballDelay - 1;
+            }
+        }
+
+        return;
+    }
+}

@@ -1,0 +1,327 @@
+class Bricks
+{
+    // The game the bricks are a part of
+    field Breakout game;
+
+    // The ball for determining bounds
+    field Ball ball;
+
+    // The screen location
+    field int x, y;
+
+    // The width and height of all the bricks
+    field int width, height;
+
+    // The number of bricks in each row and column
+    field int xbricks, ybricks;
+
+    // The width and height of an individual brick
+    field int brickWidth, brickHeight;
+
+    // 2-D array of bricks, [0][0] represents the upper left brick
+    field Array bricks;
+
+    // The bounds which dynamically change based on the position of the ball
+    field int leftBound, rightBound, bottomBound, topBound;
+
+    constructor Bricks new(int Ax, int Ay, int Awidth, int Aheight, int Axbricks, int Aybricks, Breakout Agame)
+    {
+        let x = Ax;
+        let y = Ay;
+        let width = Awidth - 1;
+        let height = Aheight - 1;
+        let xbricks = Axbricks;
+        let ybricks = Aybricks;
+        let brickWidth = Awidth / Axbricks;
+        let brickHeight = Aheight / Aybricks;
+        let game = Agame;
+
+        do init();
+        do show();
+
+        return this;
+    }
+
+    method void dispose() 
+    {
+        var int i, j;
+        var Array ybrick;
+        var Brick brick;
+
+        let i = 0;
+
+        while (i < xbricks)
+        {
+            let ybrick = bricks[i];
+            let j = 0;
+
+            while (j < ybricks)
+            {
+                let brick = ybrick[j];
+                do brick.dispose();
+                let j = j + 1;
+            }
+            do ybrick.dispose();
+            let i = i + 1;
+        }
+
+        do brick.dispose();
+        do Memory.deAlloc(this);
+
+        return;
+    }
+
+    method void init()
+    {
+        var int i, j;
+        var Array ybrick;
+
+        let bricks = Array.new(xbricks);
+        let i = 0;
+        while (i < xbricks)
+        {
+            let ybrick = Array.new(ybricks);
+            let bricks[i] = ybrick;
+            let j = 0;
+
+            while (j < ybricks)
+            {
+                do print(i * brickWidth, j * brickHeight);
+                do Keyboard.readChar();
+                let ybrick[j] = Brick.new(i * brickWidth, j * brickHeight, brickWidth, brickHeight);
+                let j = j + 1;
+            }
+            let i = i + 1;
+        }
+
+        return;
+    }
+
+    method boolean in(Ball Aball)
+    {
+        return Aball.getTopBound() < (y + height + 1);
+    }
+
+    method void setBounds(Ball Aball)
+    {
+        var int ileft, iright, jtop, jbottom;
+        var Array ybrick;
+        var Brick brick;
+        var int diagLeftBound, diagRightBound, diagTopBound, diagBottomBound;
+        var int struckBricks;
+        var int ballDirection;
+        var String d;
+
+        let ballDirection = Aball.getDirection();
+        let leftBound = x;
+        let rightBound = y + width;
+        let topBound = y;
+        let bottomBound = x + height;
+        let diagLeftBound = leftBound;
+        let diagRightBound = rightBound;
+        let diagTopBound = topBound;
+        let diagBottomBound = bottomBound;
+
+        // If any side of the ball is out of bounds the bricks must have already been struck
+        // and the bounds are already set properly so just return
+        if ((Aball.getLeftBound() < leftBound) | (Aball.getRightBound() > rightBound) | (Aball.getTopBound() < topBound))
+        {
+            return;
+        }
+
+        // Ball is in bounds at this point
+        let struckBricks = 0;
+        let ileft = Aball.getLeftBound() / brickWidth;
+        let iright = Aball.getRightBound() / brickWidth;
+        let jtop = (Aball.getTopBound() - y) / brickHeight;
+        let jbottom = (Aball.getBottomBound() - y) / brickHeight;
+
+        // Find the brick that the top left corner of the ball is on
+        let ybrick = bricks[ileft];
+        let brick = ybrick[jtop];
+
+        if (brick.isVisible())
+        {
+            do brick.strike();
+            let struckBricks = struckBricks + 1;
+
+            // If the ball is traveling 
+            //   Up/Left - diagonal
+            //   Up/Right - bound bottom
+            //   Down/Left - bound right
+            //   Down/Right - not possible
+            if (ballDirection = 1)
+            {
+                let diagLeftBound = brick.getRightBound();
+                let diagTopBound = brick.getBottomBound();
+            }
+            if (ballDirection = 2)
+            {
+                let topBound = brick.getBottomBound();
+            }
+            if (ballDirection = 3)
+            {
+                let leftBound = brick.getRightBound();
+            }
+        }
+
+        // Find the brick that the top right corner of the ball is on
+        let ybrick = bricks[iright];
+        let brick = ybrick[jtop];
+
+        if (brick.isVisible())
+        {
+            do brick.strike();
+            let struckBricks = struckBricks + 1;
+            // If the ball is traveling 
+            //   Up/Left - bound bottom
+            //   Up/Right - diagonal
+            //   Down/Left - not possible
+            //   Down/Right - bound left
+            
+            if (ballDirection = 1)
+            {
+                let topBound = brick.getBottomBound();
+            }
+            if (ballDirection = 2)
+            {
+                let diagRightBound = brick.getLeftBound();
+                let diagTopBound = brick.getBottomBound();
+            }
+            if (ballDirection = 4)
+            {
+                let rightBound = brick.getLeftBound();
+            }
+        }
+
+        // The bottom corners of the ball can be outside of bounds, treat
+        // that case as if the brick was not visible
+        if (jbottom < ybricks)
+        {
+            do print(1, 1);
+            // Find the brick that the bottom left corner of the ball is on
+            let ybrick = bricks[ileft];
+            let brick = ybrick[jbottom];
+
+            if (brick.isVisible())
+            {
+                do brick.strike();
+                let struckBricks = struckBricks + 1;
+
+                // If the ball is traveling 
+                //   Up/Left - bound right
+                //   Up/Right - not possible
+                //   Down/Left - diagonal
+                //   Down/Right - bound top
+                if (ballDirection = 1)
+                {
+                    let leftBound = brick.getRightBound();
+                }
+                if (ballDirection = 3)
+                {
+                    let diagLeftBound = brick.getRightBound();
+                    let diagBottomBound = brick.getTopBound();
+                }
+                if (ballDirection = 4)
+                {
+                    let bottomBound = brick.getTopBound();
+                }
+            }
+
+            // Find the brick that the bottom right corner of the ball is on
+            let ybrick = bricks[iright];
+            let brick = ybrick[jbottom];
+
+            if (brick.isVisible())
+            {
+                do brick.strike();
+                let struckBricks = struckBricks + 1;
+
+                // If the ball is traveling 
+                //   Up/Left - not possible
+                //   Up/Right - bound left
+                //   Down/Left - bound top
+                //   Down/Right - diagonal
+                if (ballDirection = 2)
+                {
+                    let rightBound = brick.getLeftBound();
+                }
+                if (ballDirection = 3)
+                {
+                    let bottomBound = brick.getTopBound();
+                }
+                if (ballDirection = 4)
+                {
+                    let diagRightBound = brick.getLeftBound();
+                    let diagBottomBound = brick.getTopBound();
+                }
+            }
+        }
+
+        if (struckBricks > 0)
+        {
+            do game.updateScore(struckBricks);
+
+            // Handle a diagonal only if one brick is struck by bounding such that the ball will
+            // reflect back in the direction that it came from
+            if (struckBricks = 1)
+            {
+                let rightBound = diagRightBound;
+                let bottomBound = diagBottomBound;
+                let rightBound = diagRightBound;
+                let bottomBound = diagBottomBound;
+            }
+        }
+
+        do game.gameOver();
+        return;
+    }
+
+    method void print(int i, int j)
+    {
+        var String tmp;
+
+        let tmp = String.new(10);
+        do StringUtils.appendInt(tmp, i, 0);
+        do StringUtils.appendInt(tmp, j, 3);
+        do game.updateMessage(tmp);
+        do tmp.dispose();
+
+        return;
+    }
+
+    method int getLeftBound()
+    {
+        return leftBound;
+    }
+
+    method int getRightBound()
+    {
+        return rightBound;
+    }
+
+    method int getTopBound()
+    {
+        return topBound;
+    }
+
+    method int getBottomBound()
+    {
+        return bottomBound;
+    }
+
+    method void show() 
+    {
+        do Screen.setColor(true);
+	do draw();
+
+        return;
+    }
+
+    method void draw() 
+    {
+	do Screen.drawRectangle(x, y, x + width, y + height);
+
+	return;
+    }
+}

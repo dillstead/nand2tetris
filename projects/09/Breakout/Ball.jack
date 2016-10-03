@@ -1,0 +1,324 @@
+class Ball 
+{
+    // The game the ball's a part of
+    field Breakout game;
+
+    // The game's paddle
+    field Paddle paddle;
+
+    // The bricks to strike
+    field Bricks bricks;
+
+    // The screen location
+    field int x, y;
+
+    // The current slope index into the table
+    field int slopeIdx;
+
+    // The slope table
+    field Array dxs, dys;
+
+    // Width and height are the same
+    field int dim;
+
+    // 1 - Up/Left
+    // 2 - Up/Right
+    // 3 - Down/Left
+    // 4 - Down/Righ
+    field int direction;
+
+    // Constructs a new ball with the given location, size and slope
+    constructor Ball new(int Ax, int Ay, int Adim, int Adx, int Ady, Pong Agame, Paddle Apaddle, Bricks Abricks) 
+    {
+	let x = Ax;
+	let y = Ay;
+	let dim = Adim - 1;
+	let game = Agame;
+        let paddle = Apaddle;
+        let bricks = Abricks;
+
+        do initSlopeTable(Adx, Ady);
+        do updateDirection();
+        do show();
+
+        return this;
+    }
+
+    method void dispose() 
+    {
+        do Memory.deAlloc(dxs);
+        do Memory.deAlloc(dys);
+        do Memory.deAlloc(this);
+
+        return;
+    }
+
+    method void initSlopeTable(int dx, int dy)
+    {
+        var int gcd;
+        var int t;
+
+        let dxs = Array.new(7);
+        let dys = Array.new(7);
+        let slopeIdx = 0;
+
+        while (slopeIdx < 3)
+        {
+            let t = dy * (4 - slopeIdx);
+            let gcd = Utils.gcd(dx, t);
+            let dxs[slopeIdx] = dx / gcd;
+            let dys[slopeIdx] = t / gcd;
+
+            let t = dx * (4 - slopeIdx);
+            let gcd = Utils.gcd(t, dy);
+            let dxs[6 - slopeIdx] = t / gcd;
+            let dys[6 - slopeIdx] = dy / gcd;
+
+            let slopeIdx = slopeIdx + 1;
+        }
+
+        let dxs[slopeIdx] = dx;
+        let dys[slopeIdx] = dy;
+
+        return;
+    }
+
+    method void show() 
+    {
+        do Screen.setColor(true);
+	do draw();
+
+        return;
+    }
+
+    method void hide() 
+    {
+        do Screen.setColor(false);
+	do draw();
+
+        return;
+    }
+
+    // Draws the ball on screen
+    method void draw() 
+    {
+	do Screen.drawRectangle(x, y, x + dim, y + dim);
+
+	return;
+    }
+
+    method int getLeftBound()
+    {
+        return x;
+    }
+
+    method int getRightBound()
+    {
+        return x + dim;
+    }
+
+    method int getTopBound()
+    {
+        return y;
+    }
+
+    method int getBottomBound()
+    {
+        return y + dim;
+    }
+
+    method void updateDirection()
+    {
+        var int dx, dy;
+        var int newDirection;
+
+        let dx = dxs[slopeIdx];
+        let dy = dys[slopeIdx];
+        let newDirection = 4;
+
+        if ((dx < 0) & (dy < 0))
+        {
+            let newDirection = 1;
+        }
+
+        if ((dx > 0) & (dy < 0))
+        {
+            let newDirection = 2;
+        }
+
+        if ((dx < 0) & (dy > 0))
+        {
+            let newDirection = 3;
+        }
+
+        let direction = newDirection;
+
+        return;
+    }
+
+    method int getDirection()
+    {
+        return direction;
+    }
+
+    // Move the ball one step in the given direction if possible
+    // Bounce the ball if it hits a wall, bricks, or the paddle
+    method void move() 
+    {
+        var boolean inBricks;
+        var int leftBound, rightBound, bottomBound, topBound;
+
+        let inBricks = bricks.in(this);
+
+        if (inBricks)
+        {
+            do bricks.setBounds(this);
+
+            let leftBound = bricks.getLeftBound();
+            let rightBound = bricks.getRightBound();
+            let topBound = bricks.getTopBound();
+            let bottomBound = bricks.getBottomBound();
+        }
+        else
+        {
+            let leftBound = game.getLeftBound();
+            let rightBound = game.getRightBound();
+            let topBound = game.getTopBound();
+            let bottomBound = game.getBottomBound();
+        }
+
+        do hide();
+        do bounce(inBricks, leftBound, rightBound, topBound, bottomBound);
+        do show();
+
+        return;
+    }
+
+    method void bounce(boolean inBricks, int leftBound, int rightBound, 
+                       int topBound, int bottomBound) 
+    {
+        var int paddleLeft, paddleRight;
+
+        let x = x + dxs[slopeIdx];
+        let y = y + dys[slopeIdx];
+
+        if (x < leftBound)
+        {
+            let x = leftBound;
+            let dxs[slopeIdx] = -dxs[slopeIdx];
+        }
+        if ((x + dim) > rightBound)
+        {
+            let x = rightBound - dim;
+            let dxs[slopeIdx] = -dxs[slopeIdx];
+        }
+        if (y < topBound)
+        {
+            let y = topBound;
+            let dys[slopeIdx] = -dys[slopeIdx];
+        }
+
+        // If reached the bottom wall and on the paddle, bounce else exit
+        if ((y + dim) > bottomBound)
+        {
+            if (~inBricks)
+            {
+                let paddleLeft = paddle.getLeft();
+                let paddleRight = paddle.getRight();
+
+                if (((x + dim) < paddleLeft) | (x > paddleRight))
+                {
+                    do game.gameOver();
+
+                    return;
+                }
+                else
+                {
+                    if ((x + dim) < (paddleLeft + 15))
+                    {
+                        // Ball on left side of paddle
+                        if (dxs[slopeIdx] < 0)
+                        {
+                            // Moving left
+                            // Decrease slope
+                            do decreaseSlope();
+                        }
+                        else
+                        {
+                            // Moving right
+                            // Increase slope
+                            do increaseSlope();
+                        }
+                    }
+                    else
+                    {
+                        if (x > (paddleRight- 15))
+                        {
+                            // Ball on right side of paddle
+                            if (dxs[slopeIdx] < 0)
+                            {
+                                // Moving left
+                                // Increase slope
+                                do increaseSlope();
+                            }
+                            else
+                            {
+                                // Moving right
+                                // Decrease slope
+                                do decreaseSlope();
+                            }
+                        }
+                    }
+                }
+            }
+
+            let y = bottomBound - dim;
+            let dys[slopeIdx] = -dys[slopeIdx];
+        }
+
+        do updateDirection();
+        //do updateSlope();
+
+        return;
+    }
+
+    method void updateSlope()
+    {
+        var String slope;
+        var String tmp;
+
+        let slope = String.new(15);
+        let tmp = "dx:";
+        do StringUtils.append(slope, tmp, 0);
+        do tmp.dispose();
+        do StringUtils.appendInt(slope, dxs[slopeIdx], 3);
+        let tmp = " dy:";
+        do StringUtils.append(slope, tmp, 6);
+        do StringUtils.appendInt(slope, dys[slopeIdx], 9);
+        do tmp.dispose();
+        do game.updateMessage(slope);
+        do slope.dispose();
+
+        return;
+    }
+
+    method void increaseSlope() 
+    {
+        if (slopeIdx < 6)
+        {
+            let slopeIdx = slopeIdx + 1;
+        }
+
+	return;
+    }
+
+    method void decreaseSlope() 
+    {
+        if (slopeIdx > 0)
+        {
+            let slopeIdx = slopeIdx - 1;
+        }
+
+	return;
+    }
+}

@@ -1,0 +1,17 @@
+class Main 
+{
+
+    /** Initializes the Breakout game and starts it. */
+    function void main() 
+    {
+        var Breakout game;
+
+	do Breakout.newInstance();
+        let game = Breakout.getInstance();
+
+        do game.play();
+	do game.dispose();
+
+        return;
+    }
+}
