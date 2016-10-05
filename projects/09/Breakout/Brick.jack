@@ -9,6 +9,8 @@ class Brick
     // True if the brick is visible (the ball hasn't struck it yet)
     field boolean visible;
 
+    field Breakout game;
+
     constructor Brick new(int Ax, int Ay, int Awidth, int Aheight)
     {
         let x = Ax;

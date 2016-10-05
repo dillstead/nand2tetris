@@ -1,13 +1,3 @@
-// Screen 
-// 130 - left arrow
-// 132 - right arrow
-// 0...511 cols
-// 0...255 rows
-// (0, 0) is upper left
-// 0,10  71,10
-// chars are 8x11
-
-
 class Breakout
 {
     static Breakout instance;
@@ -37,7 +27,7 @@ class Breakout
 	do Screen.clearScreen();
 
         let dx = 1;
-        let dy = -1;
+        let dy = 1;
         let paddle = Paddle.new(230, 248, 50, 7, this);
         let bricks = Bricks.new(0, 12, 512, 64, 8, 4, this);
         let ball = Ball.new(253, 125, 5, dx, dy, this, paddle, bricks);
@@ -79,13 +69,21 @@ class Breakout
         return 247;
     }
 
-    method void gameOver()
+    method void gameOver(boolean won)
     {
         let exit = true;
 
-	//do Screen.clearScreen();
-        //do Output.moveCursor(11, 27);
-	//do Output.printString("Game Over");
+	do Screen.clearScreen();
+        do Output.moveCursor(11, 27);
+
+        if (won)
+        {
+            do Output.printString("You Won!!");
+        }
+        else
+        {
+            do Output.printString("Game Over");
+        }
 
         return;
     }
@@ -120,7 +118,7 @@ class Breakout
         let exit = false;
         let prevKey = 0;
         let keyDelay = 200;
-        let ballDelay = 200;
+        let ballDelay = 500;
 
         while (~exit) 
         {
@@ -161,7 +159,7 @@ class Breakout
             if (ballDelay = 0)
             {
                 do ball.move();
-                let ballDelay = 200;
+                let ballDelay = 500;
             }
             else
             {

@@ -18,6 +18,10 @@ class Bricks
     // The width and height of an individual brick
     field int brickWidth, brickHeight;
 
+    // The total number of bricks left to strike, when this
+    // is 0 the game is won
+    field int bricksLeftToStrike;
+
     // 2-D array of bricks, [0][0] represents the upper left brick
     field Array bricks;
 
@@ -34,6 +38,7 @@ class Bricks
         let ybricks = Aybricks;
         let brickWidth = Awidth / Axbricks;
         let brickHeight = Aheight / Aybricks;
+        let bricksLeftToStrike = xbricks * ybricks;
         let game = Agame;
 
         do init();
@@ -86,9 +91,7 @@ class Bricks
 
             while (j < ybricks)
             {
-                do print(i * brickWidth, j * brickHeight);
-                do Keyboard.readChar();
-                let ybrick[j] = Brick.new(i * brickWidth, j * brickHeight, brickWidth, brickHeight);
+                let ybrick[j] = Brick.new(i * brickWidth, y + (j * brickHeight), brickWidth, brickHeight);
                 let j = j + 1;
             }
             let i = i + 1;
@@ -102,21 +105,26 @@ class Bricks
         return Aball.getTopBound() < (y + height + 1);
     }
 
+    method boolean allBricksStruck()
+    {
+        return bricksLeftToStrike = 0;
+     }
+
     method void setBounds(Ball Aball)
     {
         var int ileft, iright, jtop, jbottom;
         var Array ybrick;
         var Brick brick;
         var int diagLeftBound, diagRightBound, diagTopBound, diagBottomBound;
-        var int struckBricks;
+        var int visibleBricks, struckBricks;
         var int ballDirection;
         var String d;
 
         let ballDirection = Aball.getDirection();
         let leftBound = x;
-        let rightBound = y + width;
+        let rightBound = x + width;
         let topBound = y;
-        let bottomBound = x + height;
+        let bottomBound = game.getBottomBound();
         let diagLeftBound = leftBound;
         let diagRightBound = rightBound;
         let diagTopBound = topBound;
@@ -130,7 +138,7 @@ class Bricks
         }
 
         // Ball is in bounds at this point
-        let struckBricks = 0;
+        let visibleBricks = 0;
         let ileft = Aball.getLeftBound() / brickWidth;
         let iright = Aball.getRightBound() / brickWidth;
         let jtop = (Aball.getTopBound() - y) / brickHeight;
@@ -142,8 +150,7 @@ class Bricks
 
         if (brick.isVisible())
         {
-            do brick.strike();
-            let struckBricks = struckBricks + 1;
+            let visibleBricks = visibleBricks + 1;
 
             // If the ball is traveling 
             //   Up/Left - diagonal
@@ -171,8 +178,8 @@ class Bricks
 
         if (brick.isVisible())
         {
-            do brick.strike();
-            let struckBricks = struckBricks + 1;
+            let visibleBricks = visibleBricks + 1;
+
             // If the ball is traveling 
             //   Up/Left - bound bottom
             //   Up/Right - diagonal
@@ -198,15 +205,13 @@ class Bricks
         // that case as if the brick was not visible
         if (jbottom < ybricks)
         {
-            do print(1, 1);
             // Find the brick that the bottom left corner of the ball is on
             let ybrick = bricks[ileft];
             let brick = ybrick[jbottom];
 
             if (brick.isVisible())
             {
-                do brick.strike();
-                let struckBricks = struckBricks + 1;
+                let visibleBricks = visibleBricks + 1;
 
                 // If the ball is traveling 
                 //   Up/Left - bound right
@@ -234,8 +239,7 @@ class Bricks
 
             if (brick.isVisible())
             {
-                do brick.strike();
-                let struckBricks = struckBricks + 1;
+                let visibleBricks = visibleBricks + 1;
 
                 // If the ball is traveling 
                 //   Up/Left - not possible
@@ -258,34 +262,64 @@ class Bricks
             }
         }
 
-        if (struckBricks > 0)
+        if (visibleBricks > 0)
         {
-            do game.updateScore(struckBricks);
-
-            // Handle a diagonal only if one brick is struck by bounding such that the ball will
+            // Handle a diagonal only if one brick is visible by bounding such that the ball will
             // reflect back in the direction that it came from
-            if (struckBricks = 1)
+            if (visibleBricks = 1)
             {
                 let rightBound = diagRightBound;
                 let bottomBound = diagBottomBound;
                 let rightBound = diagRightBound;
                 let bottomBound = diagBottomBound;
             }
+
+            // Strike the bricks and tally the score
+            let struckBricks = 0;
+
+            let ybrick = bricks[ileft];
+            let brick = ybrick[jtop];
+
+            if (brick.isVisible())
+            {
+                do brick.strike();
+                let struckBricks = struckBricks + 1;
+            }
+
+            if (jbottom < ybricks)
+            {
+                let brick = ybrick[jbottom];
+
+                if (brick.isVisible())
+                {
+                    do brick.strike();
+                    let struckBricks = struckBricks + 1;
+                }
+            }
+
+            let ybrick = bricks[iright];
+            let brick = ybrick[jtop];
+
+            if (brick.isVisible())
+            {
+                do brick.strike();
+                let struckBricks = struckBricks + 1;
+            }
+
+            if (jbottom < ybricks)
+            {
+                let brick = ybrick[jbottom];
+
+                if (brick.isVisible())
+                {
+                    do brick.strike();
+                    let struckBricks = struckBricks + 1;
+                }
+            }
+
+            let bricksLeftToStrike = bricksLeftToStrike - struckBricks;
+            do game.updateScore(struckBricks);
         }
-
-        do game.gameOver();
-        return;
-    }
-
-    method void print(int i, int j)
-    {
-        var String tmp;
-
-        let tmp = String.new(10);
-        do StringUtils.appendInt(tmp, i, 0);
-        do StringUtils.appendInt(tmp, j, 3);
-        do game.updateMessage(tmp);
-        do tmp.dispose();
 
         return;
     }

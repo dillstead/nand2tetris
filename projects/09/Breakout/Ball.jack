@@ -173,6 +173,13 @@ class Ball
         if (inBricks)
         {
             do bricks.setBounds(this);
+            
+            if (bricks.allBricksStruck())
+            {
+                do game.gameOver(true);
+
+                return;
+            }
 
             let leftBound = bricks.getLeftBound();
             let rightBound = bricks.getRightBound();
@@ -187,9 +194,7 @@ class Ball
             let bottomBound = game.getBottomBound();
         }
 
-        do hide();
         do bounce(inBricks, leftBound, rightBound, topBound, bottomBound);
-        do show();
 
         return;
     }
@@ -198,6 +203,8 @@ class Ball
                        int topBound, int bottomBound) 
     {
         var int paddleLeft, paddleRight;
+
+        do hide();
 
         let x = x + dxs[slopeIdx];
         let y = y + dys[slopeIdx];
@@ -228,7 +235,7 @@ class Ball
 
                 if (((x + dim) < paddleLeft) | (x > paddleRight))
                 {
-                    do game.gameOver();
+                    do game.gameOver(false);
 
                     return;
                 }
@@ -277,27 +284,7 @@ class Ball
         }
 
         do updateDirection();
-        //do updateSlope();
-
-        return;
-    }
-
-    method void updateSlope()
-    {
-        var String slope;
-        var String tmp;
-
-        let slope = String.new(15);
-        let tmp = "dx:";
-        do StringUtils.append(slope, tmp, 0);
-        do tmp.dispose();
-        do StringUtils.appendInt(slope, dxs[slopeIdx], 3);
-        let tmp = " dy:";
-        do StringUtils.append(slope, tmp, 6);
-        do StringUtils.appendInt(slope, dys[slopeIdx], 9);
-        do tmp.dispose();
-        do game.updateMessage(slope);
-        do slope.dispose();
+        do show();
 
         return;
     }
