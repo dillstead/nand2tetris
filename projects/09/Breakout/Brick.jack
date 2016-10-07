@@ -1,0 +1,85 @@
+class Brick
+{
+    // The screen location
+    field int x, y;
+
+    // The width and height
+    field int width, height;
+
+    // True if the brick is visible (the ball hasn't struck it yet)
+    field boolean visible;
+
+    field Breakout game;
+
+    constructor Brick new(int Ax, int Ay, int Awidth, int Aheight)
+    {
+        let x = Ax;
+        let y = Ay;
+        let width = Awidth - 1;
+        let height = Aheight - 1;
+        let visible = true;
+
+        return this;
+    }
+
+    method void dispose() 
+    {
+        do Memory.deAlloc(this);
+
+        return;
+    }
+
+    method void hide() 
+    {
+        do Screen.setColor(false);
+	do draw();
+
+        return;
+    }
+
+    method void draw() 
+    {
+	do Screen.drawRectangle(x, y, x + width, y + height);
+
+	return;
+    }
+
+    method int getLeftBound()
+    {
+        return x;
+    }
+
+    method int getRightBound()
+    {
+        return x + width;
+    }
+
+    method int getTopBound()
+    {
+        return y;
+    }
+
+    method int getBottomBound()
+    {
+        return y + height;
+    }
+
+    method boolean isVisible()
+    {
+        return visible;
+    }
+
+    method void strike()
+    {
+        if (~visible)
+        {
+            return;
+        }
+
+        let visible = false;
+
+        do hide();
+
+        return;
+    }
+}

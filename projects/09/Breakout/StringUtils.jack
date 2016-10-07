@@ -1,0 +1,40 @@
+class StringUtils
+{
+    function void append(String dest, String src, int pos)
+    {
+        var int dlen, slen, i;
+
+        let dlen = dest.length();
+        let slen = src.length();
+        let i = 0;
+
+        while ((pos < dlen) & (i < slen))
+        {
+            do dest.setCharAt(pos, src.charAt(i));
+            let pos = pos + 1;
+            let i = i + 1;
+        }
+
+        while (i < slen)
+        {
+            do dest.appendChar(src.charAt(i));
+            let pos = pos + 1;
+            let i = i + 1;
+        }
+
+        return;
+    }
+
+    function void appendInt(String dest, int i, int pos)
+    {
+        var String src;
+
+        let src = String.new(10);
+
+        do src.setInt(i);
+        do StringUtils.append(dest, src, pos);
+        do src.dispose();
+
+        return;
+    }
+}

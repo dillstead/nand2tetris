@@ -1,0 +1,24 @@
+class Utils
+{
+    function int gcd(int x, int y)
+    {
+        var int r;
+
+        // Euclid's method
+        if (x < y)
+        {
+            let r = x;
+            let x = y;
+            let y = r;
+        }
+
+        while (y > 0)
+        {
+            let r = x - ((x / y) * y);
+            let x = y;
+            let y = r;
+        }
+
+        return x;
+    }
+}
