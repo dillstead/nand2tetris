@@ -18,13 +18,16 @@ class Ball
     // The slope table
     field Array dxs, dys;
 
+    // The current slope
+    field int dx, dy;
+
     // Width and height are the same
     field int dim;
 
     // 1 - Up/Left
     // 2 - Up/Right
     // 3 - Down/Left
-    // 4 - Down/Righ
+    // 4 - Down/Right
     field int direction;
 
     // Constructs a new ball with the given location, size and slope
@@ -77,8 +80,11 @@ class Ball
             let slopeIdx = slopeIdx + 1;
         }
 
-        let dxs[slopeIdx] = dx;
-        let dys[slopeIdx] = dy;
+        let gcd = Utils.gcd(dx, dy);
+        let dxs[slopeIdx] = dx / gcd;
+        let dys[slopeIdx] = dy / gcd;
+
+        do setSlope();
 
         return;
     }
@@ -129,11 +135,8 @@ class Ball
 
     method void updateDirection()
     {
-        var int dx, dy;
         var int newDirection;
 
-        let dx = dxs[slopeIdx];
-        let dy = dys[slopeIdx];
         let newDirection = 4;
 
         if ((dx < 0) & (dy < 0))
@@ -206,23 +209,23 @@ class Ball
 
         do hide();
 
-        let x = x + dxs[slopeIdx];
-        let y = y + dys[slopeIdx];
+        let x = x + dx;
+        let y = y + dy;
 
         if (x < leftBound)
         {
             let x = leftBound;
-            let dxs[slopeIdx] = -dxs[slopeIdx];
+            let dx = -dx;
         }
         if ((x + dim) > rightBound)
         {
             let x = rightBound - dim;
-            let dxs[slopeIdx] = -dxs[slopeIdx];
+            let dx = -dx;
         }
         if (y < topBound)
         {
             let y = topBound;
-            let dys[slopeIdx] = -dys[slopeIdx];
+            let dy = -dy;
         }
 
         // If reached the bottom wall and on the paddle, bounce else exit
@@ -244,7 +247,7 @@ class Ball
                     if ((x + dim) < (paddleLeft + 15))
                     {
                         // Ball on left side of paddle
-                        if (dxs[slopeIdx] < 0)
+                        if (direction = 3)
                         {
                             // Moving left
                             // Decrease slope
@@ -262,7 +265,7 @@ class Ball
                         if (x > (paddleRight- 15))
                         {
                             // Ball on right side of paddle
-                            if (dxs[slopeIdx] < 0)
+                            if (direction = 3)
                             {
                                 // Moving left
                                 // Increase slope
@@ -280,7 +283,7 @@ class Ball
             }
 
             let y = bottomBound - dim;
-            let dys[slopeIdx] = -dys[slopeIdx];
+            let dy = -dy;
         }
 
         do updateDirection();
@@ -294,6 +297,7 @@ class Ball
         if (slopeIdx < 6)
         {
             let slopeIdx = slopeIdx + 1;
+            do setSlope();
         }
 
 	return;
@@ -304,8 +308,32 @@ class Ball
         if (slopeIdx > 0)
         {
             let slopeIdx = slopeIdx - 1;
+            do setSlope();
         }
 
 	return;
+    }
+
+    method void setSlope()
+    {
+        if (dx < 0)
+        {
+            let dx = -dxs[slopeIdx];
+        }
+        else
+        {
+            let dx = dxs[slopeIdx];
+        }
+
+        if (dy < 0)
+        {
+            let dy = -dys[slopeIdx];
+        }
+        else
+        {
+            let dy = dys[slopeIdx];
+        }
+
+        return;
     }
 }

@@ -118,7 +118,7 @@ class Breakout
         let exit = false;
         let prevKey = 0;
         let keyDelay = 200;
-        let ballDelay = 500;
+        let ballDelay = 200;
 
         while (~exit) 
         {
@@ -159,7 +159,7 @@ class Breakout
             if (ballDelay = 0)
             {
                 do ball.move();
-                let ballDelay = 500;
+                let ballDelay = 200;
             }
             else
             {
