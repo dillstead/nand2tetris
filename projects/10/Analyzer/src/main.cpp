@@ -16,26 +16,30 @@ int main(int argc, char **argv)
     }
 
     Analyzer analyzer;
+    bool success = true;
 
     if (is_jack_file(argv[1]))
     {
         string filename("./");
 
-        analyzer.Analyze(filename.append(argv[1]));
+        success = analyzer.Analyze(filename.append(argv[1]));
     }
     else
     {
         if (DIR *pdir = opendir(argv[1]))
         {
-            while (struct dirent *pdirent = readdir(pdir))
+            struct dirent *pdirent = readdir(pdir);
+            while (success && pdirent)
             {
                 if (is_jack_file(pdirent->d_name))
                 {
                     string filename(argv[1]);
 
-                    analyzer.Analyze(filename.append("/").append(pdirent->d_name));
+                    success = analyzer.Analyze(filename.append("/").append(pdirent->d_name));
                 }
+                pdirent = readdir(pdir);
             }
+            closedir(pdir);
         }
     }
 

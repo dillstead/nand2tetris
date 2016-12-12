@@ -3,7 +3,36 @@
 
 #include "tokenizer.h"
 
-Tokenizer::Tokenizer(ifstream &in) : in_(in),
+static const char *keyword_names[] = {
+    "class",
+    "method",
+    "function",
+    "constructor",
+    "int",
+    "boolean",
+    "char",
+    "void",
+    "var",
+    "static",
+    "field",
+    "let",
+    "do",
+    "if",
+    "else",
+    "while",
+    "return",
+    "true",
+    "false",
+    "null",
+    "this"
+};
+
+const char *KeywordName(Keyword keyword)
+{
+    return keyword_names[int(keyword)];
+};
+
+Tokenizer::Tokenizer(ifstream &in) : in_(in), state_(READING_WHITESPACE),
     keywordmap_({ { "class", Keyword::CLASS },
     { "method", Keyword::METHOD },
     { "function", Keyword::FUNCTION },
@@ -19,6 +48,7 @@ Tokenizer::Tokenizer(ifstream &in) : in_(in),
     { "do", Keyword::DO },
     { "if", Keyword::IF },
     { "else", Keyword::ELSE },
+    { "while", Keyword::WHILE },
     { "return", Keyword::RETURN },
     { "true", Keyword::TRUE },
     { "false", Keyword::FALSE },
@@ -51,8 +81,6 @@ bool Tokenizer::HasMoreTokens()
 {
     int c;
     int prevc = '\0';
-
-    state_ = READING_WHITESPACE;
 
     while (state_ != READING_TOKEN && (c = in_.get()) != EOF)
     {
@@ -217,6 +245,7 @@ bool Tokenizer::Advance()
             }
             else
             {
+                in_.putback(c);
                 if (keywordmap_.count(token_) > 0)
                 {
                     keyword_ = keywordmap_[token_];
@@ -239,5 +268,47 @@ bool Tokenizer::Advance()
         }
     }
 
+    //if (valid)
+    //{
+    //    DumpTokenInfo();
+    //}
+
     return valid;
+}
+
+void Tokenizer::DumpTokenInfo()
+{
+    switch (tokentype_)
+    {
+        case TokenType::IDENTIFIER:
+        {
+            cout << "identifier: " << token_ << endl;
+            break;
+        }
+        case TokenType::INT_CONST:
+        {
+            cout << "integerConstant: " << intval_ << endl;
+            break;
+        }
+        case TokenType::KEYWORD:
+        {
+            cout << "keyword: " << token_ << endl;
+            break;
+        }
+        case TokenType::STRING_CONST:
+        {
+            cout << "stringConstant: " << stringval_ << endl;
+            break;
+        }
+        case TokenType::SYMBOL:
+        {
+            cout << "symbol: " << symbol_ << endl;
+            break;
+        }
+        default:
+        {
+            cerr << "Unknown token type" << endl;
+            break;
+        }
+        }
 }

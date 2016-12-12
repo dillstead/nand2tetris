@@ -3,60 +3,34 @@
 using namespace std;
 
 #include "analyzer.h"
-#include "tokenizer.h"
+#include "compilation_engine.h"
 
-bool Analyzer::Analyze(string &filename)
+bool Analyzer::Analyze(const string &in_filename)
 {
     ifstream infile;
 
-    cout << "Analyzing " << filename << endl;
+    cout << "Analyzing " << in_filename << endl;
 
-    infile.open(filename.c_str(), ios::in);
+    infile.open(in_filename.c_str(), ios::in);
     if (infile.fail())
     {
-        cerr << "Error reading " << filename << endl;
+        cerr << "Error reading " << in_filename << endl;
         return false;
     }
 
-    Tokenizer tokenizer(infile);
-    bool valid = true;
+    string out_filename = in_filename.substr(0, in_filename.find_last_of('.'));
+    out_filename.append(".xml");
 
-    while (tokenizer.HasMoreTokens() && (valid = tokenizer.Advance()))
+    ofstream outfile;
+
+    outfile.open(out_filename.c_str(), ios::out);
+    if (outfile.fail())
     {
-        switch (tokenizer.tokentype())
-        {
-        case TokenType::IDENTIFIER:
-        {
-            cout << "IDENTIFIER " << tokenizer.identifier() << endl;
-            break;
-        }
-        case TokenType::INT_CONST:
-        {
-            cout << "INT_CONST " << tokenizer.intval() << endl;
-            break;
-        }
-        case TokenType::KEYWORD:
-        {
-            cout << "KEYWORD " << tokenizer.keyword() << endl;
-            break;
-        }
-        case TokenType::STRING_CONST:
-        {
-            cout << "STRING_CONST " << tokenizer.stringval() << endl;
-            break;
-        }
-        case TokenType::SYMBOL:
-        {
-            cout << "SYMBOL " << tokenizer.symbol() << endl;
-            break;
-        }
-        default:
-        {
-            cerr << "Unknown token type" << endl;
-            valid = false;
-            break;
-        }
-        }
+        cerr << "Error writing " << out_filename << endl;
+        return false;
     }
-    return valid;
+
+    CompilationEngine compilation_engine(infile, outfile);
+
+    return compilation_engine.Compile();
 }

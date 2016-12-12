@@ -40,11 +40,15 @@ enum class Keyword
     THIS
 };
 
+// Returns convenient name of Keyword as a C string.
+const char *KeywordName(Keyword keyword);
+
 typedef set<int> SymbolSet;
 typedef unordered_map<string, Keyword> KeywordMap;
 
 // Removes all comments and white space from a Jack file and breaks it up into tokens as
-// specified by the Jack grammar.
+// specified by the Jack grammar.  To use properly, hasMoreTokens() must be called before
+// determining whether or not to call Advance().
 
 class Tokenizer
 {
@@ -62,7 +66,7 @@ class Tokenizer
     class token_ifstream
     {
         ifstream &in_;
-        int lineno_;
+        size_t lineno_;
 
         public:
             token_ifstream(ifstream &in) : in_(in), lineno_(1)
@@ -107,9 +111,16 @@ class Tokenizer
     char symbol_;
     string stringval_;
 
+    void DumpTokenInfo();
+
 public:
     // Creates a tokenizer with a input stream ready for reading.
     Tokenizer(ifstream &in);
+
+    size_t lineno()
+    {
+        return in_.lineno();
+    }
 
     // Returns true if there are more tokens in the input.
     bool HasMoreTokens();
@@ -127,9 +138,9 @@ public:
 
     // Returns the keyword which is the current token.  Should only be called
     // when tokenType() is KEYWORD.
-    const string &keyword() const
+    const Keyword keyword() const
     {
-        return token_;
+        return keyword_;
     }
 
     // Returns the character which is the current token.  Should only be called
