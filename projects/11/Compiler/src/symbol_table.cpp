@@ -43,13 +43,13 @@ void SymbolTable::Define(const string &name, const string &type, SymbolKind kind
         class_scope_.insert(symbol);
         break;
     }
-    case SymbolKind::ARG:
+    case SymbolKind::ARGUMENT:
     {
         SymbolMapEntry symbol(name, SymbolTable::Symbol(name, type, kind, arg_index_++));
         subroutine_scope_.insert(symbol);
         break;
     }
-    case SymbolKind::VAR:
+    case SymbolKind::VARIABLE:
     {
         SymbolMapEntry symbol(name, SymbolTable::Symbol(name, type, kind, var_index_++));
         subroutine_scope_.insert(symbol);
@@ -70,22 +70,22 @@ int SymbolTable::KindCount(SymbolKind kind) const
     {
     case SymbolKind::STATIC:
     {
-        count = static_index_ + 1;
+        count = static_index_;
         break;
     }
     case SymbolKind::FIELD:
     {
-        count = field_index_ + 1;
+        count = field_index_;
         break;
     }
-    case SymbolKind::ARG:
+    case SymbolKind::ARGUMENT:
     {
-        count = arg_index_ + 1;
+        count = arg_index_;
         break;
     }
-    case SymbolKind::VAR:
+    case SymbolKind::VARIABLE:
     {
-        count = var_index_ + 1;
+        count = var_index_;
         break;
     }
     default:

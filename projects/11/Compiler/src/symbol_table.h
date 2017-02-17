@@ -10,8 +10,8 @@ enum class SymbolKind
     NONE,
     STATIC,
     FIELD,
-    ARG,
-    VAR,
+    ARGUMENT,
+    VARIABLE,
 };
 
 // Returns convenient name of SymbolKind as a string.

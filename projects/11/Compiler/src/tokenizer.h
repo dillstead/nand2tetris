@@ -101,8 +101,8 @@ class Tokenizer
 
     token_ifstream in_;
     State state_;
-    KeywordMap keywordmap_;
-    SymbolSet symbolset_;
+    KeywordMap keyword_map_;
+    SymbolSet symbol_set_;
 
     string token_;
     TokenType tokentype_;

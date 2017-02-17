@@ -2,130 +2,14 @@
 
 #include "compilation_engine.h"
 
-// category
-// var, argument, static, field, class, subroutine
-// action
-// define, use for variables
-void CompilationEngine::XmlWriter::OpenElement(const char *element_name)
-{
-    Indent();
-    out_ <<  "<" << element_name << ">" << endl;
-    //cout <<  "<" << element_name << ">" << endl;
-    indentation_++;
-}
+static const string kMemoryAlloc = "Memory.alloc";
+static const string kStringNew = "String.new";
+static const string kStringAppendChar = "String.appendChar";
+static const string kMultiply = "Math.multiply";
+static const string kDivide = "Math.divide";
 
-void CompilationEngine::XmlWriter::CloseElement(const char *element_name)
-{
-    indentation_--;
-    Indent();
-    out_ <<  "</" << element_name << ">" << endl;
-    //cout <<  "</" << element_name << ">" << endl;
-}
-
-void CompilationEngine::XmlWriter::WriteIdentifierElement(const string &name, const string &kind)
-{
-    OpenElement("identifier");
-    Indent();
-    out_ << "<name> " << name << " </name>" << endl;
-    Indent();
-    out_ << "<kind> " << kind << " </kind>" << endl;
-    CloseElement("identifier");
-}
-
-void CompilationEngine::XmlWriter::WriteIdentifierElement(const string &name, const string &kind, const string &action, int index)
-{
-    OpenElement("identifier");
-    Indent();
-    out_ << "<name> " << name << " </name>" << endl;
-    Indent();
-    out_ << "<kind> " << kind << " </kind>" << endl;
-    Indent();
-    out_ << "<action> " << action << " </action>" << endl;
-    Indent();
-    out_ << "<index> " << index << " </index>" << endl;
-    CloseElement("identifier");
-}
-
-void CompilationEngine::XmlWriter::WriteTokenElement(const Tokenizer &tokenizer)
-{
-    Indent();
-    switch (tokenizer.tokentype())
-    {
-    case TokenType::IDENTIFIER:
-    {
-        out_ << "<identifier> " << tokenizer.identifier() << " </identifier>" << endl;
-        //cout << "<identifier> " << tokenizer.identifier() << " </identifier>" << endl;
-        break;
-    }
-    case TokenType::INT_CONST:
-    {
-        out_ << "<integerConstant> " << tokenizer.intval() << " </integerConstant>" << endl;
-        //cout << "<integerConstant> " << tokenizer.intval() << " </integerConstant>" << endl;
-        break;
-    }
-    case TokenType::KEYWORD:
-    {
-        out_ << "<keyword> " << KeywordName(tokenizer.keyword()) << " </keyword>" << endl;
-        //cout << "<keyword> " << KeywordName(tokenizer.keyword()) << " </keyword>" << endl;
-        break;
-    }
-    case TokenType::STRING_CONST:
-    {
-        out_ << "<stringConstant> " << tokenizer.stringval() << " </stringConstant>" << endl;
-        //cout << "<stringConstant> " << tokenizer.stringval() << " </stringConstant>" << endl;
-        break;
-    }
-    case TokenType::SYMBOL:
-    {
-        switch (tokenizer.symbol())
-        {
-        case '>':
-        {
-            out_ << "<symbol> &gt; </symbol>" << endl;
-            //cout << "<symbol> &gt; </symbol>" << endl;
-            break;
-        }
-        case '<':
-        {
-            out_ << "<symbol> &lt; </symbol>" << endl;
-            //cout << "<symbol> &lt; </symbol>" << endl;
-            break;
-        }
-        case '&':
-        {
-            out_ << "<symbol> &amp; </symbol>" << endl;
-            //cout << "<symbol> &amp; </symbol>" << endl;
-            break;
-        }
-        default:
-        {
-            out_ << "<symbol> " << tokenizer.symbol() << " </symbol>" << endl;
-            //cout << "<symbol> " << tokenizer.symbol() << " </symbol>" << endl;
-            break;
-        }
-        }
-
-        break;
-    }
-    default:
-    {
-        cerr << "Unknown token type" << endl;
-        break;
-    }
-    }
-}
-
-void CompilationEngine::XmlWriter::Indent()
-{
-    for (int i = 0; i < indentation_; i++)
-    {
-        out_ <<  " ";
-        //cout <<  " ";
-    }
-}
-
-CompilationEngine::CompilationEngine(ifstream &in, ofstream &out) : tokenizer_(in), xmlwriter_(out),
-        opset_({ '+',
+CompilationEngine::CompilationEngine(ifstream &in, ofstream &out) : tokenizer_(in), vm_writer_(out), num_labels(0),
+        op_set_({ '+',
         '-',
         '*',
         '/',
@@ -133,7 +17,11 @@ CompilationEngine::CompilationEngine(ifstream &in, ofstream &out) : tokenizer_(i
         '|',
         '<',
         '>',
-        '=' })
+        '=' }),
+        symbolkind_map_({ { SymbolKind::ARGUMENT, Segment::ARGUMENT },
+        { SymbolKind::FIELD, Segment::THIS },
+        { SymbolKind::STATIC, Segment::STATIC },
+        { SymbolKind::VARIABLE, Segment::LOCAL } })
 {
 
 }
@@ -166,11 +54,9 @@ bool CompilationEngine::CompileClass()
         goto error;
     }
 
-    xmlwriter_.OpenElement("class");
 
     if (tokenizer_.tokentype() == TokenType::KEYWORD && tokenizer_.keyword() == Keyword::CLASS)
     {
-        xmlwriter_.WriteTokenElement(tokenizer_);
         ChompToken();
     }
     else
@@ -181,7 +67,7 @@ bool CompilationEngine::CompileClass()
 
     if (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::IDENTIFIER)
     {
-        xmlwriter_.WriteIdentifierElement(tokenizer_.identifier(), "class");
+        class_info_.name= tokenizer_.identifier();
         ChompToken();
     }
     else
@@ -192,7 +78,6 @@ bool CompilationEngine::CompileClass()
 
     if (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::SYMBOL && tokenizer_.symbol() == '{')
     {
-        xmlwriter_.WriteTokenElement(tokenizer_);
         ChompToken();
     }
     else
@@ -222,7 +107,6 @@ bool CompilationEngine::CompileClass()
 
     if (tokenizer_.tokentype() == TokenType::SYMBOL && tokenizer_.symbol() == '}')
     {
-        xmlwriter_.WriteTokenElement(tokenizer_);
         ChompToken();
     }
     else
@@ -236,8 +120,6 @@ bool CompilationEngine::CompileClass()
         cerr << "Expected one class per file" << endl;
         goto error;
     }
-
-    xmlwriter_.CloseElement("class");
 
     return true;
 
@@ -261,27 +143,19 @@ bool CompilationEngine::CompileClassVarDec()
 {
     string type;
 
-    xmlwriter_.OpenElement("classVarDec");
-
     // Token has already been checked and will be static or field.
     bool isStatic = (tokenizer_.keyword() == Keyword::STATIC);
-    xmlwriter_.WriteTokenElement(tokenizer_);
     ChompToken();
 
-    bool isClassName = false;
+    bool isClassName = true;
     if (tokenizer_.HasMoreTokens())
     {
-        if (tokenizer_.tokentype() == TokenType::IDENTIFIER)
-        {
-            xmlwriter_.WriteIdentifierElement(tokenizer_.identifier(), "class");
-            isClassName = true;
-        }
-        else if  (tokenizer_.tokentype() == TokenType::KEYWORD
+        if  (tokenizer_.tokentype() == TokenType::KEYWORD
             && (tokenizer_.keyword() == Keyword::INT || tokenizer_.keyword() == Keyword::CHAR || tokenizer_.keyword() == Keyword::BOOLEAN))
         {
-            xmlwriter_.WriteTokenElement(tokenizer_);
+            isClassName = false;
         }
-        else
+        else if (tokenizer_.tokentype() != TokenType::IDENTIFIER)
         {
             cerr << "Line " << tokenizer_.lineno() << ": Expected 'int', 'char', 'boolean' or class name" << endl;
             goto error;
@@ -299,8 +173,6 @@ bool CompilationEngine::CompileClassVarDec()
     if (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::IDENTIFIER)
     {
         symbol_table_.Define(tokenizer_.identifier(), type, isStatic ? SymbolKind::STATIC : SymbolKind::FIELD);
-        xmlwriter_.WriteIdentifierElement(tokenizer_.identifier(), SymbolKindName(symbol_table_.KindOf(tokenizer_.identifier())), "define",
-                symbol_table_.IndexOf(tokenizer_.identifier()));
         ChompToken();
     }
     else
@@ -311,14 +183,11 @@ bool CompilationEngine::CompileClassVarDec()
 
     while (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::SYMBOL && tokenizer_.symbol() == ',')
     {
-        xmlwriter_.WriteTokenElement(tokenizer_);
         ChompToken();
 
         if (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::IDENTIFIER)
         {
             symbol_table_.Define(tokenizer_.identifier(), type, isStatic ? SymbolKind::STATIC : SymbolKind::FIELD);
-            xmlwriter_.WriteIdentifierElement(tokenizer_.identifier(), SymbolKindName(symbol_table_.KindOf(tokenizer_.identifier())), "define",
-                    symbol_table_.IndexOf(tokenizer_.identifier()));
             ChompToken();
         }
         else
@@ -328,10 +197,8 @@ bool CompilationEngine::CompileClassVarDec()
         }
     }
 
-
     if (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::SYMBOL && tokenizer_.symbol() == ';')
     {
-        xmlwriter_.WriteTokenElement(tokenizer_);
         ChompToken();
     }
     else
@@ -339,8 +206,6 @@ bool CompilationEngine::CompileClassVarDec()
         cerr << "Line " << tokenizer_.lineno() << ": ';'" << endl;
         goto error;
     }
-
-    xmlwriter_.CloseElement("classVarDec");
 
     return true;
 
@@ -350,7 +215,7 @@ error:
 
 // Grammar rule
 //   subroutineDec
-//     ('constructor' | 'function' | 'method') ('void | type) subroutineName
+//     ('constructor' | 'function' | 'method') ('void' | type) subroutineName
 //     '(' parameterList ')' subroutineBody
 //
 //   type
@@ -363,25 +228,29 @@ error:
 //     identifier
 bool CompilationEngine::CompileSubroutine()
 {
-    xmlwriter_.OpenElement("subroutineDec");
+    subroutine_info_.type = tokenizer_.keyword();
+    subroutine_info_.void_return = false;
+    subroutine_info_.num_returns = 0;
+    num_labels = 0;
+
+    // Open a new scope for the subroutine.
+    symbol_table_.StartSubroutine();
 
     // Token has already been checked.
-    xmlwriter_.WriteTokenElement(tokenizer_);
     ChompToken();
 
     if (tokenizer_.HasMoreTokens())
     {
-        if (tokenizer_.tokentype() == TokenType::IDENTIFIER)
-        {
-            xmlwriter_.WriteIdentifierElement(tokenizer_.identifier(), "class");
-        }
-        else if  (tokenizer_.tokentype() == TokenType::KEYWORD
+        if  (tokenizer_.tokentype() == TokenType::KEYWORD
             && (tokenizer_.keyword() == Keyword::INT || tokenizer_.keyword() == Keyword::CHAR || tokenizer_.keyword() == Keyword::BOOLEAN
             || tokenizer_.keyword() == Keyword::VOID))
         {
-            xmlwriter_.WriteTokenElement(tokenizer_);
+            if (tokenizer_.keyword() == Keyword::VOID)
+            {
+                subroutine_info_.void_return = true;
+            }
         }
-        else
+        else if (tokenizer_.tokentype() != TokenType::IDENTIFIER)
         {
             cerr << "Line " << tokenizer_.lineno() << ": Expected 'int', 'char', 'boolean', 'void' or class name" << endl;
             goto error;
@@ -396,7 +265,7 @@ bool CompilationEngine::CompileSubroutine()
 
     if (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::IDENTIFIER)
     {
-        xmlwriter_.WriteIdentifierElement(tokenizer_.identifier(), "subroutine");
+        subroutine_info_.name = tokenizer_.identifier();
         ChompToken();
     }
     else
@@ -407,7 +276,6 @@ bool CompilationEngine::CompileSubroutine()
 
     if (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::SYMBOL && tokenizer_.symbol() == '(')
     {
-        xmlwriter_.WriteTokenElement(tokenizer_);
         ChompToken();
 
         if (!CompileParameterList())
@@ -424,9 +292,7 @@ bool CompilationEngine::CompileSubroutine()
 
     if (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::SYMBOL && tokenizer_.symbol() == ')')
     {
-        xmlwriter_.WriteTokenElement(tokenizer_);
         ChompToken();
-
     }
     else
     {
@@ -439,7 +305,11 @@ bool CompilationEngine::CompileSubroutine()
         goto error;
     }
 
-    xmlwriter_.CloseElement("subroutineDec");
+    if (subroutine_info_.num_returns == 0)
+    {
+        cerr << "'" << subroutine_info_.name << "': No return found" << endl;
+        return false;
+    }
 
     return true;
 
@@ -452,13 +322,9 @@ error:
 //     '{' varDec* statements '}'
 bool CompilationEngine::CompileSubroutineBody()
 {
-    xmlwriter_.OpenElement("subroutineBody");
-
     if (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::SYMBOL && tokenizer_.symbol() == '{')
     {
-        xmlwriter_.WriteTokenElement(tokenizer_);
         ChompToken();
-
     }
     else
     {
@@ -474,6 +340,8 @@ bool CompilationEngine::CompileSubroutineBody()
         }
     }
 
+    WriteSubroutineSetup();
+
     if (!CompileStatements())
     {
         goto error;
@@ -481,7 +349,6 @@ bool CompilationEngine::CompileSubroutineBody()
 
     if (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::SYMBOL && tokenizer_.symbol() == '}')
     {
-        xmlwriter_.WriteTokenElement(tokenizer_);
         ChompToken();
 
     }
@@ -490,8 +357,6 @@ bool CompilationEngine::CompileSubroutineBody()
         cerr << "Line " << tokenizer_.lineno() << ": Expected identifier '}'" << endl;
         goto error;
     }
-
-    xmlwriter_.CloseElement("subroutineBody");
 
     return true;
 
@@ -515,20 +380,22 @@ bool CompilationEngine::CompileParameterList()
 {
     string type;
 
-    xmlwriter_.OpenElement("parameterList");
+    // A method must be passed a "this" pointer as argument 0.
+    if (subroutine_info_.type == Keyword::METHOD)
+    {
+        symbol_table_.Define("this", class_info_.name, SymbolKind::ARGUMENT);
+    }
 
     if (tokenizer_.HasMoreTokens() && (tokenizer_.tokentype() != TokenType::SYMBOL || tokenizer_.symbol() != ')'))
     {
         // Non-empty parameterList
         if (tokenizer_.tokentype() == TokenType::IDENTIFIER)
         {
-            xmlwriter_.WriteIdentifierElement(tokenizer_.identifier(), "class");
             type = tokenizer_.identifier();
         }
         else if (tokenizer_.tokentype() == TokenType::KEYWORD
             && (tokenizer_.keyword() == Keyword::INT || tokenizer_.keyword() == Keyword::CHAR || tokenizer_.keyword() == Keyword::BOOLEAN))
         {
-            xmlwriter_.WriteTokenElement(tokenizer_);
             type = KeywordName(tokenizer_.keyword());
         }
         else
@@ -540,9 +407,7 @@ bool CompilationEngine::CompileParameterList()
 
         if (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::IDENTIFIER)
         {
-            symbol_table_.Define(tokenizer_.identifier(), type, SymbolKind::ARG);
-            xmlwriter_.WriteIdentifierElement(tokenizer_.identifier(), SymbolKindName(symbol_table_.KindOf(tokenizer_.identifier())), "define",
-                symbol_table_.IndexOf(tokenizer_.identifier()));
+            symbol_table_.Define(tokenizer_.identifier(), type, SymbolKind::ARGUMENT);
             ChompToken();
         }
         else
@@ -553,18 +418,15 @@ bool CompilationEngine::CompileParameterList()
 
         while (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::SYMBOL && tokenizer_.symbol() == ',')
         {
-            xmlwriter_.WriteTokenElement(tokenizer_);
             ChompToken();
 
             if (tokenizer_.tokentype() == TokenType::IDENTIFIER)
             {
-                xmlwriter_.WriteIdentifierElement(tokenizer_.identifier(), "class");
                 type = tokenizer_.identifier();
             }
             else if (tokenizer_.tokentype() == TokenType::KEYWORD
                 && (tokenizer_.keyword() == Keyword::INT || tokenizer_.keyword() == Keyword::CHAR || tokenizer_.keyword() == Keyword::BOOLEAN))
             {
-                xmlwriter_.WriteTokenElement(tokenizer_);
                 type = KeywordName(tokenizer_.keyword());
             }
             else
@@ -576,9 +438,7 @@ bool CompilationEngine::CompileParameterList()
 
             if (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::IDENTIFIER)
             {
-                symbol_table_.Define(tokenizer_.identifier(), type, SymbolKind::ARG);
-                xmlwriter_.WriteIdentifierElement(tokenizer_.identifier(), SymbolKindName(symbol_table_.KindOf(tokenizer_.identifier())), "define",
-                        symbol_table_.IndexOf(tokenizer_.identifier()));
+                symbol_table_.Define(tokenizer_.identifier(), type, SymbolKind::ARGUMENT);
                 ChompToken();
             }
             else
@@ -588,8 +448,6 @@ bool CompilationEngine::CompileParameterList()
             }
         }
     }
-
-    xmlwriter_.CloseElement("parameterList");
 
     return true;
 
@@ -613,21 +471,16 @@ bool CompilationEngine::CompileVarDec()
 {
     string type;
 
-    xmlwriter_.OpenElement("varDec");
-
     // Token has already been checked.
-    xmlwriter_.WriteTokenElement(tokenizer_);
     ChompToken();
 
     if (tokenizer_.tokentype() == TokenType::IDENTIFIER)
     {
-        xmlwriter_.WriteIdentifierElement(tokenizer_.identifier(), "class");
         type = tokenizer_.identifier();
     }
     else if (tokenizer_.tokentype() == TokenType::KEYWORD
         && (tokenizer_.keyword() == Keyword::INT || tokenizer_.keyword() == Keyword::CHAR || tokenizer_.keyword() == Keyword::BOOLEAN))
     {
-        xmlwriter_.WriteTokenElement(tokenizer_);
         type = KeywordName(tokenizer_.keyword());
     }
     else
@@ -640,9 +493,7 @@ bool CompilationEngine::CompileVarDec()
 
     if (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::IDENTIFIER)
     {
-        symbol_table_.Define(tokenizer_.identifier(), type, SymbolKind::VAR);
-        xmlwriter_.WriteIdentifierElement(tokenizer_.identifier(), SymbolKindName(symbol_table_.KindOf(tokenizer_.identifier())), "define",
-                symbol_table_.IndexOf(tokenizer_.identifier()));
+        symbol_table_.Define(tokenizer_.identifier(), type, SymbolKind::VARIABLE);
         ChompToken();
     }
     else
@@ -653,14 +504,11 @@ bool CompilationEngine::CompileVarDec()
 
     while (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::SYMBOL && tokenizer_.symbol() == ',')
     {
-        xmlwriter_.WriteTokenElement(tokenizer_);
         ChompToken();
 
         if (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::IDENTIFIER)
         {
-            symbol_table_.Define(tokenizer_.identifier(), type, SymbolKind::VAR);
-            xmlwriter_.WriteIdentifierElement(tokenizer_.identifier(), SymbolKindName(symbol_table_.KindOf(tokenizer_.identifier())), "define",
-                symbol_table_.IndexOf(tokenizer_.identifier()));
+            symbol_table_.Define(tokenizer_.identifier(), type, SymbolKind::VARIABLE);
             ChompToken();
         }
         else
@@ -672,7 +520,6 @@ bool CompilationEngine::CompileVarDec()
 
     if (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::SYMBOL && tokenizer_.symbol() == ';')
     {
-        xmlwriter_.WriteTokenElement(tokenizer_);
         ChompToken();
     }
     else
@@ -680,8 +527,6 @@ bool CompilationEngine::CompileVarDec()
         cerr << "Line " << tokenizer_.lineno() << ": ';'" << endl;
         goto error;
     }
-
-    xmlwriter_.CloseElement("varDec");
 
     return true;
 
@@ -698,8 +543,6 @@ error:
 //     | doStatement | returnStatement
 bool CompilationEngine::CompileStatements()
 {
-    xmlwriter_.OpenElement("statements");
-
     while (tokenizer_.HasMoreTokens() && (tokenizer_.tokentype() != TokenType::SYMBOL || tokenizer_.symbol() != '}'))
     {
         if (tokenizer_.tokentype() == TokenType::KEYWORD)
@@ -752,8 +595,6 @@ bool CompilationEngine::CompileStatements()
         }
     }
 
-    xmlwriter_.CloseElement("statements");
-
     return true;
 
 error:
@@ -765,10 +606,7 @@ error:
 //     'do' subroutineCall ';'
 bool CompilationEngine::CompileDo()
 {
-    xmlwriter_.OpenElement("doStatement");
-
     // Token has already been checked.
-    xmlwriter_.WriteTokenElement(tokenizer_);
     ChompToken();
 
     if (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::IDENTIFIER)
@@ -784,6 +622,9 @@ bool CompilationEngine::CompileDo()
             {
                 goto error;
             }
+
+            // Return value (if any) is not going to be stored so discard it.
+            vm_writer_.WritePop(Segment::TEMP, 0);
         }
         else
         {
@@ -799,7 +640,6 @@ bool CompilationEngine::CompileDo()
 
     if (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::SYMBOL && tokenizer_.symbol() == ';')
     {
-        xmlwriter_.WriteTokenElement(tokenizer_);
         ChompToken();
     }
     else
@@ -807,8 +647,6 @@ bool CompilationEngine::CompileDo()
         cerr << "Line " << tokenizer_.lineno() << ": Expected ';'"<< endl;
         goto error;
     }
-
-    xmlwriter_.CloseElement("doStatement");
 
     return true;
 
@@ -821,38 +659,28 @@ error:
 //     'let' varName ('[' expression ']')? '=' expression ';'
 bool CompilationEngine::CompileLet()
 {
-    xmlwriter_.OpenElement("letStatement");
+    string identifier;
+    bool store_into_array = false;
 
     // Token has already been checked.
-    xmlwriter_.WriteTokenElement(tokenizer_);
     ChompToken();
 
     if (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::IDENTIFIER)
     {
-        string identifier(tokenizer_.identifier());
-
+        identifier = tokenizer_.identifier();
         ChompToken();
 
-        if (tokenizer_.HasMoreTokens())
+        if (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::SYMBOL && tokenizer_.symbol() == '[')
         {
-            if (tokenizer_.tokentype() == TokenType::SYMBOL && tokenizer_.symbol() == '[')
+            if (!CompileArrayIndex(identifier))
             {
-                if (!CompileArrayIndex(identifier))
-                {
-                    goto error;
-                }
+                goto error;
             }
-            else
-            {
-                xmlwriter_.WriteIdentifierElement(identifier, SymbolKindName(symbol_table_.KindOf(tokenizer_.identifier())), "use",
-                        symbol_table_.IndexOf(identifier));
-            }
+            store_into_array = true;
         }
 
         if (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::SYMBOL && tokenizer_.symbol() == '=')
         {
-            xmlwriter_.WriteTokenElement(tokenizer_);
-
             ChompToken();
 
             if (!CompileExpression())
@@ -862,7 +690,6 @@ bool CompilationEngine::CompileLet()
 
             if (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::SYMBOL && tokenizer_.symbol() == ';')
             {
-                xmlwriter_.WriteTokenElement(tokenizer_);
                 ChompToken();
             }
             else
@@ -883,7 +710,10 @@ bool CompilationEngine::CompileLet()
         goto error;
     }
 
-    xmlwriter_.CloseElement("letStatement");
+    if (!WriteStoreRValue(identifier, store_into_array))
+    {
+        goto error;
+    }
 
     return true;
 
@@ -896,15 +726,16 @@ error:
 //     'while' '(' expression ')' '{' statements '}'
 bool CompilationEngine::CompileWhile()
 {
-    xmlwriter_.OpenElement("whileStatement");
+    const string &start_label = MakeLabel(subroutine_info_.name);
+    const string &end_label = MakeLabel(subroutine_info_.name);
 
     // Token has already been checked.
-    xmlwriter_.WriteTokenElement(tokenizer_);
     ChompToken();
+
+    vm_writer_.WriteLabel(start_label);
 
     if (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::SYMBOL && tokenizer_.symbol() == '(')
     {
-        xmlwriter_.WriteTokenElement(tokenizer_);
         ChompToken();
 
         if (!CompileExpression())
@@ -914,7 +745,6 @@ bool CompilationEngine::CompileWhile()
 
         if (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::SYMBOL && tokenizer_.symbol() == ')')
         {
-            xmlwriter_.WriteTokenElement(tokenizer_);
             ChompToken();
         }
         else
@@ -929,9 +759,11 @@ bool CompilationEngine::CompileWhile()
         goto error;
     }
 
+    vm_writer_.WriteArithmetic(Command::NOT);
+    vm_writer_.WriteIf(end_label);
+
     if (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::SYMBOL && tokenizer_.symbol() == '{')
     {
-        xmlwriter_.WriteTokenElement(tokenizer_);
         ChompToken();
 
         if (!CompileStatements())
@@ -939,9 +771,10 @@ bool CompilationEngine::CompileWhile()
             goto error;
         }
 
+        vm_writer_.WriteGoto(start_label);
+
         if (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::SYMBOL && tokenizer_.symbol() == '}')
         {
-            xmlwriter_.WriteTokenElement(tokenizer_);
             ChompToken();
         }
         else
@@ -956,7 +789,7 @@ bool CompilationEngine::CompileWhile()
         goto error;
     }
 
-    xmlwriter_.CloseElement("whileStatement");
+    vm_writer_.WriteLabel(end_label);
 
     return true;
 
@@ -969,14 +802,18 @@ error:
 //     'return' expression? ';'
 bool CompilationEngine::CompileReturn()
 {
-    xmlwriter_.OpenElement("returnStatement");
+    subroutine_info_.num_returns++;
 
     // Token has already been checked.
-    xmlwriter_.WriteTokenElement(tokenizer_);
     ChompToken();
 
     if (tokenizer_.HasMoreTokens() && (tokenizer_.tokentype() != TokenType::SYMBOL || tokenizer_.symbol() != ';'))
     {
+        if (subroutine_info_.void_return)
+        {
+            cerr << "'" << MakeSubroutineName(subroutine_info_.name) << "': Cannot return a value" << endl;
+            goto error;
+        }
         if (!CompileExpression())
         {
             goto error;
@@ -985,7 +822,6 @@ bool CompilationEngine::CompileReturn()
 
     if (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::SYMBOL && tokenizer_.symbol() == ';')
     {
-        xmlwriter_.WriteTokenElement(tokenizer_);
         ChompToken();
     }
     else
@@ -994,7 +830,13 @@ bool CompilationEngine::CompileReturn()
         goto error;
     }
 
-    xmlwriter_.CloseElement("returnStatement");
+    // Void subroutines must return 0.
+    if (subroutine_info_.void_return)
+    {
+        vm_writer_.WritePush(Segment::CONSTANT, 0);
+    }
+
+    vm_writer_.WriteReturn();
 
     return true;
 
@@ -1007,15 +849,14 @@ error:
 //     'if' '(' expression ')' '{' statements '}' ('else' '{' statements '}')?
 bool CompilationEngine::CompileIf()
 {
-    xmlwriter_.OpenElement("ifStatement");
+    const string &not_cond_label = MakeLabel(subroutine_info_.name);
+    const string &end_label = MakeLabel(subroutine_info_.name);
 
     // Token has already been checked.
-    xmlwriter_.WriteTokenElement(tokenizer_);
     ChompToken();
 
     if (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::SYMBOL && tokenizer_.symbol() == '(')
     {
-        xmlwriter_.WriteTokenElement(tokenizer_);
         ChompToken();
 
         if (!CompileExpression())
@@ -1023,9 +864,11 @@ bool CompilationEngine::CompileIf()
             goto error;
         }
 
+        vm_writer_.WriteArithmetic(Command::NOT);
+        vm_writer_.WriteIf(not_cond_label);
+
         if (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::SYMBOL && tokenizer_.symbol() == ')')
         {
-            xmlwriter_.WriteTokenElement(tokenizer_);
             ChompToken();
         }
         else
@@ -1042,7 +885,6 @@ bool CompilationEngine::CompileIf()
 
     if (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::SYMBOL && tokenizer_.symbol() == '{')
     {
-        xmlwriter_.WriteTokenElement(tokenizer_);
         ChompToken();
 
         if (!CompileStatements())
@@ -1052,7 +894,6 @@ bool CompilationEngine::CompileIf()
 
         if (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::SYMBOL && tokenizer_.symbol() == '}')
         {
-            xmlwriter_.WriteTokenElement(tokenizer_);
             ChompToken();
         }
         else
@@ -1067,14 +908,15 @@ bool CompilationEngine::CompileIf()
         goto error;
     }
 
+    vm_writer_.WriteGoto(end_label);
+    vm_writer_.WriteLabel(not_cond_label);
+
     if (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::KEYWORD && tokenizer_.keyword() == Keyword::ELSE)
     {
-        xmlwriter_.WriteTokenElement(tokenizer_);
         ChompToken();
 
         if (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::SYMBOL && tokenizer_.symbol() == '{')
         {
-            xmlwriter_.WriteTokenElement(tokenizer_);
             ChompToken();
 
             if (!CompileStatements())
@@ -1084,7 +926,6 @@ bool CompilationEngine::CompileIf()
 
             if (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::SYMBOL && tokenizer_.symbol() == '}')
             {
-                xmlwriter_.WriteTokenElement(tokenizer_);
                 ChompToken();
             }
             else
@@ -1100,7 +941,7 @@ bool CompilationEngine::CompileIf()
         }
     }
 
-    xmlwriter_.CloseElement("ifStatement");
+    vm_writer_.WriteLabel(end_label);
 
     return true;
 
@@ -1116,25 +957,23 @@ error:
 //     '+' | '-' | '*'| '/' | '&' | '|' | '<' | '>' | '='
 bool CompilationEngine::CompileExpression()
 {
-    xmlwriter_.OpenElement("expression");
-
     if (!CompileTerm())
     {
         goto error;
     }
 
-    while (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::SYMBOL && opset_.count(tokenizer_.symbol()) > 0)
+    while (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::SYMBOL && op_set_.count(tokenizer_.symbol()) > 0)
     {
-        xmlwriter_.WriteTokenElement(tokenizer_);
+        char op = tokenizer_.symbol();
         ChompToken();
 
         if (!CompileTerm())
         {
             goto error;
         }
-    }
 
-    xmlwriter_.CloseElement("expression");
+        WriteOperation(op);
+    }
 
     return true;
 
@@ -1165,12 +1004,14 @@ bool CompilationEngine::CompileTerm()
         goto error;
     }
 
-    xmlwriter_.OpenElement("term");
-
-    if (tokenizer_.tokentype() == TokenType::INT_CONST
-            || tokenizer_.tokentype() == TokenType::STRING_CONST)
+    if (tokenizer_.tokentype() == TokenType::STRING_CONST)
     {
-        xmlwriter_.WriteTokenElement(tokenizer_);
+        WriteStringConstant(tokenizer_.stringval());
+        ChompToken();
+    }
+    else if (tokenizer_.tokentype() == TokenType::INT_CONST)
+    {
+        WriteIntegerConstant(tokenizer_.intval());
         ChompToken();
     }
     else if (tokenizer_.tokentype() == TokenType::KEYWORD)
@@ -1178,7 +1019,10 @@ bool CompilationEngine::CompileTerm()
         if (tokenizer_.keyword() == Keyword::TRUE || tokenizer_.keyword() == Keyword::FALSE
                 || tokenizer_.keyword() == Keyword::NULLZ || tokenizer_.keyword() == Keyword::THIS)
         {
-            xmlwriter_.WriteTokenElement(tokenizer_);
+            if (!WriteKeywordConstant(tokenizer_.keyword()))
+            {
+                goto error;
+            }
             ChompToken();
         }
         else
@@ -1191,7 +1035,6 @@ bool CompilationEngine::CompileTerm()
     {
         if (tokenizer_.symbol() == '(')
         {
-            xmlwriter_.WriteTokenElement(tokenizer_);
             ChompToken();
 
             if (!CompileExpression())
@@ -1201,7 +1044,6 @@ bool CompilationEngine::CompileTerm()
 
             if (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::SYMBOL && tokenizer_.symbol() == ')')
             {
-                xmlwriter_.WriteTokenElement(tokenizer_);
                 ChompToken();
             }
             else
@@ -1212,13 +1054,16 @@ bool CompilationEngine::CompileTerm()
         }
         else if (tokenizer_.symbol() == '-' || tokenizer_.symbol() == '~')
         {
-            xmlwriter_.WriteTokenElement(tokenizer_);
+            char unaryOp = tokenizer_.symbol();
+
             ChompToken();
 
             if (!CompileTerm())
             {
                 goto error;
             }
+
+            unaryOp == '-' ? vm_writer_.WriteArithmetic(Command::NEG) : vm_writer_.WriteArithmetic(Command::NOT);
         }
         else
         {
@@ -1240,6 +1085,10 @@ bool CompilationEngine::CompileTerm()
                 {
                     goto error;
                 }
+                if (!WriteValue(identifier, true))
+                {
+                    goto error;
+                }
             }
             else if (tokenizer_.tokentype() == TokenType::SYMBOL  && (tokenizer_.symbol() == '('
                     || tokenizer_.symbol() == '.'))
@@ -1252,19 +1101,21 @@ bool CompilationEngine::CompileTerm()
             else
             {
                 // variable
-                xmlwriter_.WriteIdentifierElement(identifier, SymbolKindName(symbol_table_.KindOf(tokenizer_.identifier())), "use",
-                        symbol_table_.IndexOf(identifier));
+                if (!WriteValue(identifier, false))
+                {
+                    goto error;
+                }
             }
         }
         else
         {
             // variable
-            xmlwriter_.WriteIdentifierElement(identifier, SymbolKindName(symbol_table_.KindOf(tokenizer_.identifier())), "use",
-                    symbol_table_.IndexOf(identifier));
+            if (!WriteValue(identifier, false))
+            {
+                goto error;
+            }
         }
     }
-
-    xmlwriter_.CloseElement("term");
 
     return true;
 
@@ -1275,10 +1126,8 @@ error:
 // Grammar rule
 //   expressionList:
 //     (expression (',', expression)*)?
-bool CompilationEngine::CompileExpressionList()
+bool CompilationEngine::CompileExpressionList(int &num_args)
 {
-    xmlwriter_.OpenElement("expressionList");
-
     if (tokenizer_.HasMoreTokens() && (tokenizer_.tokentype() != TokenType::SYMBOL || tokenizer_.symbol() != ')'))
     {
         // Non-empty expressionList
@@ -1286,20 +1135,19 @@ bool CompilationEngine::CompileExpressionList()
         {
             goto error;
         }
+        num_args++;
 
         while (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::SYMBOL && tokenizer_.symbol() == ',')
         {
-            xmlwriter_.WriteTokenElement(tokenizer_);
             ChompToken();
 
             if (!CompileExpression())
             {
                 goto error;
             }
+            num_args++;
         }
     }
-
-    xmlwriter_.CloseElement("expressionList");
 
     return true;
 
@@ -1310,9 +1158,6 @@ error:
 bool CompilationEngine::CompileArrayIndex(const string &identifier)
 {
     // Identifier is varName, current token is '['.
-    xmlwriter_.WriteIdentifierElement(identifier, SymbolKindName(symbol_table_.KindOf(tokenizer_.identifier())), "use",
-            symbol_table_.IndexOf(identifier));
-    xmlwriter_.WriteTokenElement(tokenizer_);
     ChompToken();
 
     if (!CompileExpression())
@@ -1322,7 +1167,6 @@ bool CompilationEngine::CompileArrayIndex(const string &identifier)
 
     if (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::SYMBOL && tokenizer_.symbol() == ']')
     {
-        xmlwriter_.WriteTokenElement(tokenizer_);
         ChompToken();
     }
     else
@@ -1343,21 +1187,35 @@ error:
 //     | (className | varName) '.' subroutineName '(' expressionList ')'
 bool CompilationEngine::CompileSubroutineCall(const string &identifier)
 {
+    string class_name;
+    string subroutine_name;
+    int num_args = 0;
+
     if (tokenizer_.symbol() == '(')
     {
+        class_name = class_info_.name;
+        subroutine_name = identifier;
+
         // Identifier is subroutineName.
-        xmlwriter_.WriteIdentifierElement(identifier, "subroutine");
-        xmlwriter_.WriteTokenElement(tokenizer_);
         ChompToken();
 
-        if (!CompileExpressionList())
+        if (subroutine_info_.type == Keyword::FUNCTION)
+        {
+            cerr << "In '" << MakeSubroutineName(subroutine_info_.name) << "': Cannot call '" << subroutine_name << "' from function" << endl;
+            goto error;
+        }
+
+        // Push this before any arguments.
+        vm_writer_.WritePush(Segment::POINTER, 0);
+        num_args++;
+
+        if (!CompileExpressionList(num_args))
         {
             goto error;
         }
 
         if (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::SYMBOL && tokenizer_.symbol() == ')')
         {
-            xmlwriter_.WriteTokenElement(tokenizer_);
             ChompToken();
         }
         else
@@ -1369,30 +1227,33 @@ bool CompilationEngine::CompileSubroutineCall(const string &identifier)
     else if (tokenizer_.symbol() == '.')
     {
         // Identifier is className or varName.
-        if (symbol_table_.KindOf(tokenizer_.identifier()) == SymbolKind::NONE)
+        if (symbol_table_.KindOf(identifier) == SymbolKind::NONE)
         {
-            xmlwriter_.WriteIdentifierElement(tokenizer_.identifier(), "class");
+            class_name = identifier;
         }
         else
         {
-            xmlwriter_.WriteIdentifierElement(identifier, "var", SymbolKindName(symbol_table_.KindOf(tokenizer_.identifier())),
-                    symbol_table_.IndexOf(identifier));
+            class_name = symbol_table_.TypeOf(identifier);
+
+            // Push var this before any arguments.
+            WriteValue(identifier, false);
+            num_args++;
         }
-        xmlwriter_.WriteTokenElement(tokenizer_);
         ChompToken();
 
         if (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::IDENTIFIER)
         {
-            xmlwriter_.WriteIdentifierElement(tokenizer_.identifier(), "subroutine");
+            subroutine_name = tokenizer_.identifier();
             ChompToken();
         }
         else
         {
             cerr << "Line " << tokenizer_.lineno() << ": Expected subroutine name"<< endl;
+            goto error;
         }
+
         if (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::SYMBOL && tokenizer_.symbol() == '(')
         {
-            xmlwriter_.WriteTokenElement(tokenizer_);
             ChompToken();
         }
         else
@@ -1401,14 +1262,13 @@ bool CompilationEngine::CompileSubroutineCall(const string &identifier)
             goto error;
         }
 
-        if (!CompileExpressionList())
+        if (!CompileExpressionList(num_args))
         {
             goto error;
         }
 
         if (tokenizer_.HasMoreTokens() && tokenizer_.tokentype() == TokenType::SYMBOL && tokenizer_.symbol() == ')')
         {
-            xmlwriter_.WriteTokenElement(tokenizer_);
             ChompToken();
         }
         else
@@ -1418,8 +1278,214 @@ bool CompilationEngine::CompileSubroutineCall(const string &identifier)
         }
     }
 
+    vm_writer_.WriteCall(MakeSubroutineName(class_name, subroutine_name), num_args);
+
     return true;
 
 error:
     return false;
+}
+
+void CompilationEngine::WriteOperation(int op)
+{
+    // Operate on the top two values on the stack.
+    switch(op)
+    {
+    case '+':
+    {
+        vm_writer_.WriteArithmetic(Command::ADD);
+        break;
+    }
+    case '-':
+    {
+        vm_writer_.WriteArithmetic(Command::SUB);
+        break;
+    }
+    // No opcode support for multiply and divide, use the Math library instead.
+    case '*':
+    {
+        vm_writer_.WriteCall(kMultiply, 2);
+        break;
+    }
+    case '/':
+    {
+        vm_writer_.WriteCall(kDivide, 2);
+        break;
+    }
+    case '&':
+    {
+        vm_writer_.WriteArithmetic(Command::AND);
+        break;
+    }
+    case '|':
+    {
+        vm_writer_.WriteArithmetic(Command::OR);
+        break;
+    }
+    case '<':
+    {
+        vm_writer_.WriteArithmetic(Command::LT);
+        break;
+    }
+    case '>':
+    {
+        vm_writer_.WriteArithmetic(Command::GT);
+        break;
+    }
+    case '=':
+    {
+        vm_writer_.WriteArithmetic(Command::EQ);
+        break;
+    }
+    default:
+    {
+        cerr << "In '" << MakeSubroutineName(subroutine_info_.name) << "': Unknown operator '" << op << "'" << endl;
+        break;
+    }
+    }
+}
+
+void CompilationEngine::WriteSubroutineSetup()
+{
+    vm_writer_.WriteFunction(MakeSubroutineName(subroutine_info_.name), symbol_table_.KindCount(SymbolKind::VARIABLE));
+
+    if (subroutine_info_.type == Keyword::CONSTRUCTOR)
+    {
+        // Constructors must allocate memory for the fields in an object instance and setup the "this" segment to point
+        // to the starting address of the object.
+        vm_writer_.WritePush(Segment::CONSTANT, symbol_table_.KindCount(SymbolKind::FIELD));
+        vm_writer_.WriteCall(kMemoryAlloc, 1);
+        vm_writer_.WritePop(Segment::POINTER, 0);
+    }
+    else if (subroutine_info_.type == Keyword::METHOD)
+    {
+        // Methods must setup the "this" segment to point to the starting address of the object.
+        // This address is passed in as the first argument to the method.
+        vm_writer_.WritePush(Segment::ARGUMENT, 0);
+        vm_writer_.WritePop(Segment::POINTER, 0);
+    }
+}
+
+bool CompilationEngine::WriteStoreRValue(const string &lvalue, bool is_array)
+{
+    // If the lvalue is an array, there will be two elements of interest on the stack.  The top
+    // value will be the rvalue and the next value will be the offset.  In the case that the lvalue
+    // is not an array access, the top value will only be of interest.
+
+    if (symbol_table_.KindOf(lvalue) == SymbolKind::NONE)
+    {
+        cerr << "In '" << MakeSubroutineName(subroutine_info_.name) << "': Unknown identifier '" << lvalue << "'" << endl;
+        goto error;
+    }
+
+    if (is_array)
+    {
+        if (symbol_table_.TypeOf(lvalue) == KeywordName(Keyword::INT)
+                || symbol_table_.TypeOf(lvalue) == KeywordName(Keyword::CHAR)
+                || symbol_table_.TypeOf(lvalue) == KeywordName(Keyword::BOOLEAN))
+        {
+            cerr << "In '" << MakeSubroutineName(subroutine_info_.name) << "': Identifier '" << lvalue << "' cannot be indexed" << endl;
+            goto error;
+        }
+        vm_writer_.WritePop(Segment::TEMP, 0);
+        vm_writer_.WritePush(symbolkind_map_[symbol_table_.KindOf(lvalue)], symbol_table_.IndexOf(lvalue));
+        vm_writer_.WriteArithmetic(Command::ADD);
+        vm_writer_.WritePop(Segment::POINTER, 1);
+        vm_writer_.WritePush(Segment::TEMP, 0);
+        vm_writer_.WritePop(Segment::THAT, 0);
+    }
+    else
+    {
+        vm_writer_.WritePop(symbolkind_map_[symbol_table_.KindOf(lvalue)], symbol_table_.IndexOf(lvalue));
+    }
+
+    return true;
+
+error:
+    return false;
+}
+
+bool CompilationEngine::WriteValue(const string &value, bool is_array)
+{
+    // If the value is an array, the top of the stack will contain the offset.
+
+    if (symbol_table_.KindOf(value) == SymbolKind::NONE)
+    {
+        cerr << "In '" << MakeSubroutineName(subroutine_info_.name) << "': Unknown identifier '" << value << "'" << endl;
+        goto error;
+    }
+
+    if (is_array)
+    {
+        if (symbol_table_.TypeOf(value) == KeywordName(Keyword::INT)
+                || symbol_table_.TypeOf(value) == KeywordName(Keyword::CHAR)
+                || symbol_table_.TypeOf(value) == KeywordName(Keyword::BOOLEAN))
+        {
+            cerr << "In '" << MakeSubroutineName(subroutine_info_.name) << "': Identifier '" << value << "' cannot be indexed" << endl;
+            goto error;
+        }
+        vm_writer_.WritePush(symbolkind_map_[symbol_table_.KindOf(value)], symbol_table_.IndexOf(value));
+        vm_writer_.WriteArithmetic(Command::ADD);
+        vm_writer_.WritePop(Segment::POINTER, 1);
+        vm_writer_.WritePush(Segment::THAT, 0);
+    }
+    else
+    {
+        vm_writer_.WritePush(symbolkind_map_[symbol_table_.KindOf(value)], symbol_table_.IndexOf(value));
+    }
+
+    return true;
+
+error:
+    return false;
+
+}
+
+void CompilationEngine::WriteIntegerConstant(int int_const)
+{
+    vm_writer_.WritePush(Segment::CONSTANT, int_const);
+}
+
+void CompilationEngine::WriteStringConstant(const string &string_const)
+{
+    vm_writer_.WritePush(Segment::CONSTANT, string_const.length());
+    vm_writer_.WriteCall(kStringNew, 1);
+    for (unsigned int c = 0; c < string_const.length(); c++)
+    {
+        vm_writer_.WritePush(Segment::CONSTANT, string_const[c]);
+        vm_writer_.WriteCall(kStringAppendChar, 2);
+    }
+}
+
+bool CompilationEngine::WriteKeywordConstant(Keyword keyword_const)
+{
+    if (keyword_const == Keyword::NULLZ || keyword_const == Keyword::FALSE)
+    {
+        vm_writer_.WritePush(Segment::CONSTANT, 0);
+    }
+    else if (keyword_const == Keyword::THIS)
+    {
+        if (subroutine_info_.type == Keyword::FUNCTION)
+        {
+            cerr << "In '" << MakeSubroutineName(subroutine_info_.name) << "': Cannot refer to 'this'" << endl;
+            goto error;
+        }
+        vm_writer_.WritePush(Segment::POINTER, 0);
+    }
+    else if (keyword_const == Keyword::TRUE)
+    {
+        // TRUE == -1 (1111 1111 1111 1111)
+        vm_writer_.WritePush(Segment::CONSTANT, 0);
+        vm_writer_.WriteArithmetic(Command::NOT);
+    }
+    else
+    {
+        cerr << "In '" << MakeSubroutineName(subroutine_info_.name) << "': Unknown keyword '" << KeywordName(keyword_const) << "'" << endl;
+        goto error;
+    }
+
+    return true;
+
+ error:
+     return false;
 }

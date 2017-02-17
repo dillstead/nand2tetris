@@ -34,7 +34,7 @@ const string &KeywordName(Keyword keyword)
 };
 
 Tokenizer::Tokenizer(ifstream &in) : in_(in), state_(READING_WHITESPACE),
-    keywordmap_({ { "class", Keyword::CLASS },
+    keyword_map_({ { "class", Keyword::CLASS },
     { "method", Keyword::METHOD },
     { "function", Keyword::FUNCTION },
     { "constructor", Keyword::CONSTRUCTOR },
@@ -55,7 +55,7 @@ Tokenizer::Tokenizer(ifstream &in) : in_(in), state_(READING_WHITESPACE),
     { "false", Keyword::FALSE },
     { "null", Keyword::NULLZ },
     { "this", Keyword::THIS } }),
-    symbolset_({ '{',
+    symbol_set_({ '{',
     '}',
     '(',
     ')',
@@ -160,7 +160,7 @@ bool Tokenizer::Advance()
     // Guaranteed to not be EOF, pushed back in HasMoreTokens.
     int c = in_.get();
 
-    if (symbolset_.count(c) > 0)
+    if (symbol_set_.count(c) > 0)
     {
         symbol_ = c;
         tokentype_ = TokenType::SYMBOL;
@@ -247,9 +247,9 @@ bool Tokenizer::Advance()
             else
             {
                 in_.putback(c);
-                if (keywordmap_.count(token_) > 0)
+                if (keyword_map_.count(token_) > 0)
                 {
-                    keyword_ = keywordmap_[token_];
+                    keyword_ = keyword_map_[token_];
                     tokentype_ = TokenType::KEYWORD;
                 }
                 else
