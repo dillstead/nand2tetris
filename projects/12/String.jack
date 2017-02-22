@@ -1,60 +1,129 @@
-// This file is part of www.nand2tetris.org
-// and the book "The Elements of Computing Systems"
-// by Nisan and Schocken, MIT Press.
-// File name: projects/12/String.jack
-
 /**
  * Represents a String object. Implements the String type.
  */
 class String {
 
+    field int _maxLength;
+    field int _length;
+    field Array _buffer;
+
     /** Constructs a new empty String with a maximum length of maxLength. */
     constructor String new(int maxLength) {
+        let _length = 0;        
+        if (maxLength < 1) {
+            let _maxLength = 1;
+        } else {
+            let _maxLength = maxLength;
+        }
+        let _buffer = Array.new(_maxLength);
+        return this;
     }
 
     /** De-allocates the string and frees its space. */
     method void dispose() {
+        do Memory.deAlloc(_buffer);
+        do Memory.deAlloc(this);
+        return;
     }
 
     /** Returns the current length of this String. */
     method int length() {
+        return _length;
     }
 
     /** Returns the character at location j. */
     method char charAt(int j) {
+        return _buffer[j];
     }
 
     /** Sets the j'th character of this string to be c. */
     method void setCharAt(int j, char c) {
+        let _buffer[j] = c;
+        return;
     }
 
     /** Appends the character c to the end of this String.
      *  Returns this string as the return value. */
     method String appendChar(char c) {
+        var int i;
+        var Array newBuffer;
+        
+        if ((_length > _maxLength) | (_length = _maxLength)) {
+            let _maxLength = _maxLength * 2;
+            let newBuffer = Array.new(_maxLength);
+            let i = 0;
+            while (i < _length) {
+                let newBuffer[i] = _buffer[i];
+                let i = i + 1;
+            }
+            do Memory.deAlloc(_buffer);
+            let _buffer = newBuffer;
+        }
+        let _buffer[_length] = c;
+        let _length = _length + 1;
+        return this;
     }
 
     /** Erases the last character from this String. */
     method void eraseLastChar() {
+        if (_length > 0) {
+            let _length = _length - 1;
+        }
+        return;
     }
 
     /** Returns the integer value of this String until the first non
      *  numeric character. */
     method int intValue() {
+        var boolean negate;
+        var int i;
+        var int value;
+        
+        if ((_length > 0) & (_buffer[0] = 45)) {
+            let negate = true;
+            let i = 1;
+        } else {
+            let i = 0;
+        }
+        let value = 0;
+        while ((i < _length) & ((_buffer[i] > 47) & (_buffer[i] < 58))) {
+            let value = (value * 10) + (_buffer[i] - 48);
+            let i = i + 1;
+        }
+        if (negate) {
+            let value = -value;
+        }
+        return value;
     }
-
+    
     /** Sets this String to hold a representation of the given number. */
     method void setInt(int number) {
+        let _length = 0;
+        if (number < 0) {
+            do appendChar(45);
+            let number = -number;
+        } 
+        if (number < 10) {
+            do appendChar(number + 48);
+            return;
+        }
+        do setInt(number / 10);
+        do appendChar(number - ((number / 10) * 10) + 48);
+        return;
     }
 
     /** Returns the new line character. */
     function char newLine() {
+        return 128;
     }
 
     /** Returns the backspace character. */
     function char backSpace() {
+        return 129;
     }
 
     /** Returns the double quote (") character. */
     function char doubleQuote() {
+        return 34;
     }
 }

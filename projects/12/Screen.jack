@@ -1,40 +1,250 @@
-// This file is part of www.nand2tetris.org
-// and the book "The Elements of Computing Systems"
-// by Nisan and Schocken, MIT Press.
-// File name: projects/12/Screen.jack
-
 /**
  * Graphic screen library.
  */
 class Screen {
+    static Array on, off, screen;
+    static int color;
 
     /** Initializes the Screen. */
     function void init() {
+        var int i, mask;
+
+        let on = Array.new(16);
+        let off = Array.new(16);
+        let color = true;
+        let screen = 16384;
+        let mask = 1;
+        let i = 0;
+        while (i < 16) {
+            let on[i] = mask;
+            let off[i] = ~mask;
+            let mask = mask + mask;
+            let i = i + 1;
+        }
+        return;
     }
 
     /** Erases the whole screen. */
     function void clearScreen() {
+        var int i;
+
+        while (i < 8192) {
+            let screen[i] = 0;
+            let i = i + 1;
+        }
+        return;
     }
 
     /** Sets the color to be used in further draw commands
      *  where white = false, black = true. */
     function void setColor(boolean b) {
-    }
-
-    /** Draws the (x, y) pixel. */
-    function void drawPixel(int x, int y) {
-    }
-
-    /** Draws a line from (x1, y1) to (x2, y2). */
-    function void drawLine(int x1, int y1, int x2, int y2) {
+        let color = b;
+        return;
     }
 
     /** Draws a filled rectangle where the top left corner
      *  is (x1, y1) and the bottom right corner is (x2, y2). */
     function void drawRectangle(int x1, int y1, int x2, int y2) {
+        var int x, y;
+
+        do Screen.checkPixel(x1, y1);
+        do Screen.checkPixel(x2, y2);
+        if (~(x1 < x2) | ~(y1 < y2)) {
+            do Sys.error(5);
+        }
+        let y = y1;
+        while (~(y > y2)) {
+            do Screen.drawHorizontalLine(x1, y, x2, y);
+            let y = y + 1;
+        }
+        return;
+    }
+
+    function void checkPixel(int x, int y) {
+        if ((x < 0 | x > 511) | ((y < 0) | y > 255)) {
+            do Sys.error(4);
+        }
+        return;
+    }
+
+    function void drawPixel(int x, int y) {
+        var int loc, col, pix;
+
+        do Screen.checkPixel(x, y);
+        let col = x / 16;
+        let loc = (y * 32) + col;
+        let pix =  x - (col * 16);
+        if (color) {
+            let screen[loc] = screen[loc] | on[pix];
+        } else {
+            let screen[loc] = screen[loc] & off[pix];
+        }
+        return;
     }
 
     /** Draws a filled circle of radius r around (cx, cy). */
     function void drawCircle(int cx, int cy, int r) {
+        // See http://web.engr.oregonstate.edu/~sllu/bcircle.pdf
+        var int x, y, chx, chy, re;
+        
+        do Screen.checkPixel(cx + r, cy + r);
+        do Screen.checkPixel(cx + r, cy - r);
+        if (r < 0) {
+            do Sys.error(6);
+        }
+        let re = 0;
+        let chy= 1;
+        let chx = 1 - r - r;
+        let x = r;
+        let y = 0;
+        while (~(x < y)) {
+            do Screen.drawHorizontalLine(cx - x, cy + y, cx + x, cy + y);
+            do Screen.drawHorizontalLine(cx - x, cy - y, cx + x, cy - y);
+            let y = y + 1;
+            let re = re + chy;
+            let chy = chy + 2;
+            if ((re + re + chx) > 0) {
+                do Screen.drawHorizontalLine(cx - y, cy + x, cx + y, cy + x);
+                do Screen.drawHorizontalLine(cx - y, cy - x, cx + y, cy - x);
+                let x = x - 1;
+                let re = re + chx;
+                let chx = chx + 2;
+            }
+        }
+        return;
+    }
+
+    function void drawHorizontalEdge(int loc, int spix, int epix) {
+        if ((spix = 0) & (epix = 15)) {
+            if (color) {
+                let screen[loc] = screen[loc] | -1;
+            } else {
+                let screen[loc] = screen[loc] & 0;
+            }
+        } else {
+            while (~(spix > epix)) {
+                if (color) {
+                    let screen[loc] = screen[loc] | on[spix];
+                } else {
+                    let screen[loc] = screen[loc] & off[spix];
+                }
+                let spix = spix + 1;
+            }
+        }
+        return;
+    }
+
+    function void drawHorizontalLine(int x1, int y1, int x2, int y2) {
+        // Draws from left to right.
+        var int col, loc1, loc2, pix1, pix2;
+
+        let col = x1 / 16;
+        let loc1 = (y1 * 32) + col;
+        let pix1 =  x1 - (col * 16);
+        let col = x2 / 16;
+        let loc2 = (y2 * 32) + col;
+        let pix2 =  x2 - (col * 16);
+
+        if (loc1 = loc2) {
+            do Screen.drawHorizontalEdge(loc1, pix1, pix2);
+        } else {
+            do Screen.drawHorizontalEdge(loc1, pix1, 15);
+            let loc1 = loc1 + 1;
+            while (loc1 < loc2) {
+                // Full blocks
+                if (color) {
+                    let screen[loc1] = screen[loc1] | -1;
+                } else {
+                    let screen[loc1] = screen[loc1] & 0;
+                }
+                let loc1 = loc1 + 1;
+            }
+            do Screen.drawHorizontalEdge(loc2, 0, pix2);
+        }
+        return;
+    }
+
+    function void drawLine(int x1, int y1, int x2, int y2) {
+        // See https://www.cs.helsinki.fi/group/goa/mallinnus/lines/bresenh.html
+        // positive slope
+        // yadj = 1
+        // negative slope
+        // yadj = -1
+        // x1, y1, x2, y2
+        // --------------
+        // x1, y1, x2, y2 - slope < 1, x2 > x1
+        // swap = false
+        // x2, y2, x1, y1 - slope < 1, x1 >= x2
+        // swap = false
+        // y1, x1, y2, x2 - slope >= 1, y1 < y2
+        // swap dx, dy
+        // swap = true
+        // y2, x2, y1, x1 - slope >= 1, y1 >= y2
+        // swap dx, dy
+        // swap = true
+        var int x, xe, y, yadj, dx, dy, err, t;
+        var boolean swap;
+
+        do Screen.checkPixel(x1, y1);
+        do Screen.checkPixel(x2, y2);
+        // Optimize horizontal lines
+        if (y1 = y2) {
+            do Screen.drawHorizontalLine(Math.min(x1, x2), y1, Math.max(x1, x2), y1);
+            return;
+        }
+
+        let dx = x2 - x1;
+        let dy = y2 - y1;
+        if (((dx > 0) & (dy > 0)) | ((dx < 0) & (dy < 0))) {
+            // slope +
+            let yadj = 1;
+        } else {
+            // slope - 
+            let yadj = -1;
+        }
+        let dx = Math.abs(dx);
+        let dy = Math.abs(dy);
+        if (dy > dx) {
+            // slope > 1
+            let swap = true;
+            let t = dx;
+            let dx = dy;
+            let dy = t;
+            if (y1 < y2) {
+                let x = y1;
+                let y = x1;
+                let xe = y2;
+            } else {
+                let x = y2;
+                let y = x2;
+                let xe = y1;
+            }
+        } else {
+            // slope <= 1
+            let swap = false;
+            if (x1 < x2) {
+                let x = x1;
+                let y = y1;
+                let xe = x2;
+            } else {
+                let x = x2;
+                let y = y2;
+                let xe = x1;
+            }
+        }
+        while (~(x = xe)) {
+            if (swap) {
+                do Screen.drawPixel(y, x);
+            } else {
+                do Screen.drawPixel(x, y);
+            }
+            let err = err + dy;
+            if (~((err + err) < dx)) {
+                let y = y + yadj;
+                let err = err - dx;
+            }
+            let x = x + 1;
+        }
+        return;
     }
 }

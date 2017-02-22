@@ -1,11 +1,6 @@
-// This file is part of www.nand2tetris.org
-// and the book "The Elements of Computing Systems"
-// by Nisan and Schocken, MIT Press.
-// File name: projects/12/Output.jack
-
 /**
  * Handles writing characters to the screen.
- * The text screen (256 columns and 512 roes) is divided into 23 text rows (0..22), 
+ * The text screen (256 columns and 512 rows) is divided into 23 text rows (0..22), 
  * each containing 64 text columns (0..63).
  * Each row is 11 pixels high (including 1 space pixel), and 8 pixels wide
  * (including 2 space pixels).
@@ -13,10 +8,18 @@
 class Output {
 
     // Character map for printing on the left of a screen word
-    static Array charMaps; 
+    static Array charMaps, screen;
+    static int x, y;
+    static boolean scroll;
 
     /** Initializes the screen and locates the cursor at the screen's top-left. */
     function void init() {
+        let x = 0;
+        let y = 0;
+        let scroll = false;
+        let screen = 16384;
+        do Output.initMap();
+        return;
     }
 
     // Initalizes the character map array
@@ -28,7 +31,7 @@ class Output {
         // black square (used for non printable characters)
         do Output.create(0,63,63,63,63,63,63,63,63,63,0,0);
 
-        // Assigns the bitmap for each character in the charachter set.
+        // Assigns the bitmap for each character in the character set.
         do Output.create(32,0,0,0,0,0,0,0,0,0,0,0);          //
         do Output.create(33,12,30,30,30,12,12,0,12,12,0,0);  // !
         do Output.create(34,54,54,20,0,0,0,0,0,0,0,0);       // "
@@ -65,7 +68,7 @@ class Output {
         do Output.create(64,30,51,51,59,59,59,27,3,30,0,0);  // @
         do Output.create(63,30,51,51,24,12,12,0,12,12,0,0);  // ?
 
-        do Output.create(65,0,0,0,0,0,0,0,0,0,0,0);          // A ** TO BE FILLED **
+        do Output.create(65,12,30,51,51,63,51,51,51,51,0,0);   // A
         do Output.create(66,31,51,51,51,31,51,51,51,31,0,0); // B
         do Output.create(67,28,54,35,3,3,3,35,54,28,0,0);    // C
         do Output.create(68,15,27,51,51,51,51,51,27,15,0,0); // D
@@ -171,28 +174,134 @@ class Output {
     /** Moves the cursor to the j’th column of the i’th row,
      *  and erases the character that was there. */
     function void moveCursor(int i, int j) {
+        var int loc;
+
+        let x = j;
+        let y = i;
+        let scroll = false;
+        let loc = (y * 352) + (x / 2);
+        if ((x & 1) = 1) {
+            // Odd, second half
+            let screen[loc] = screen[loc] & 255;
+        } else {
+            // Even, first half
+            let screen[loc] = screen[loc] & -256;
+        }
+        return;
     }
 
+    function void scroll() {
+        var int from, to;
+
+        let to = 0;
+        let from = 352;
+        while (from < 8192) {
+            let screen[to] = screen[from];
+            let to = to + 1;
+            let from = from + 1;
+        }
+        while (to < 8192) {
+            let screen[to] = 0;
+            let to = to + 1;
+        }
+        return;
+    }
     /** Prints c at the cursor location and advances the cursor one
      *  column forward. */
     function void printChar(char c) {
+        var int loc, i;
+        var Array bitmap;
+
+        if (scroll) {
+            do Output.scroll();
+            let scroll = false;
+        }
+        if (c = 128) {
+            // For newline, drop down to the beginning of the next line
+            let x = 63;
+        } else {
+            let bitmap = Output.getMap(c);
+            let loc = (y * 352) + (x / 2);
+            let i = 0;
+            while (i < 11) {
+                if ((x & 1) = 1) {
+                    // Odd, second half
+                    let screen[loc] = (bitmap[i] * 256) | (screen[loc] & 255);
+                } else {
+                    // Even, first half
+                    let screen[loc] = bitmap[i] | (screen[loc] & -256);
+                }
+                let loc = loc + 32;
+                let i = i + 1;
+            }
+        }
+        // Advance the cursor.
+        let x = x + 1;
+        if (x > 63) {
+            let x = 0;
+            let y = y + 1;
+            if (y > 22) {
+                let y = 22;
+                if (c = 128) {
+                    // For newline, scroll immediately
+                    do Output.scroll();
+                } else {
+                    // Defer scrolling until next printable character
+                    let scroll = true;
+                }
+            }
+        }
+        return;
     }
 
     /** Prints s starting at the cursor location, and advances the
      *  cursor appropriately. */
     function void printString(String s) {
+        var int i, len;
+
+        let i = 0;
+        let len = s.length();
+
+        while (i < len) {
+            do Output.printChar(s.charAt(i));
+            let i = i + 1;
+        }
+        return;
     }
 
     /** Prints i starting at the cursor location, and advances the
      *  cursor appropriately. */
     function void printInt(int i) {
+        var String s;
+        
+        let s = String.new(6);
+        do s.setInt(i);
+        do Output.printString(s);
+        do s.dispose();
+        return;
     }
 
     /** Advances the cursor to the beginning of the next line. */
     function void println() {
+        do Output.printChar(String.newLine());
+        return;
     }
 
     /** Moves the cursor one column back. */
     function void backSpace() {
+        if (scroll) {
+            let x = 63;
+            let scroll = false;
+        } else {
+            let x = x - 1;
+            if (x < 0) {
+                let x = 63;
+                let y = y - 1;
+                if (y < 0) {
+                    let y = 0;
+                }
+            }
+        }
+        return;
     }
 }

@@ -1,32 +1,145 @@
-// This file is part of www.nand2tetris.org
-// and the book "The Elements of Computing Systems"
-// by Nisan and Schocken, MIT Press.
-// File name: projects/12/Memory.jack
-
 /**
  * Memory operations library.
  */ 
 class Memory {
+    static Array freeSegs;
 
     /** Initializes memory parameters. */
     function void init() {
+        // Heap starts at 2048, ends at 16383
+        let freeSegs = 2048;
+        // First entry is the length of the segment
+        //let freeSegs[0] = 16383 - 2048 + 1;
+        let freeSegs[0] = 17;
+        // Second entry is a pointer to the next segment or 0 if it's the
+        // the last segment
+        let freeSegs[1] = 0;
+        return;
     }
 
     /** Returns the value of the main memory at the given address. */
     function int peek(int address) {
+        var Array memory;
+
+        let memory = address;
+        return memory[0];
     }
 
     /** Sets the value of the main memory at this address
      *  to the given value. */
     function void poke(int address, int value) {
+        var Array memory;
+
+        let memory = address;
+        let memory[0] = value;
+        return;
     }
 
     /** finds and allocates from the heap a memory block of the 
      *  specified size and returns a reference to its base address. */
     function int alloc(int size) {
+        var Array curSeg;
+        var Array prevSeg;
+        var int remainingSize;
+
+        if (freeSegs[0] = 0) {
+            // No more heap
+            do Sys.error(3);
+        }
+        let size = size + 1;
+        // Use a first fit strategy, Walk the free list looking for the first segment 
+        // that has enough space to satisfy the request. 
+        let prevSeg = 0;
+        let curSeg = freeSegs;
+        while (~(curSeg = 0) & (size > curSeg[0])) {
+            let prevSeg = curSeg;
+            let curSeg = curSeg[1];
+        }
+        if (curSeg = 0) {
+            // No segment large enough
+            do Sys.error(3);
+        }
+        // Allocate from the end of the segment to keep list intact if,
+        // after allocation, there's enough space left in the segment
+        // to keep it in the free list.
+        let remainingSize = curSeg[0] - size;
+        if (remainingSize > 1) {
+            let curSeg[0] = remainingSize;
+        } else {
+            // If the entire fragment was allocated or there is only one
+            // block left (not enough space to store the next pointer)
+            // drop it from the free list.  
+            if (prevSeg = 0) {
+                // Remove head
+                let freeSegs = curSeg[1];
+            } else {
+                let prevSeg[1] = curSeg[1];
+            }
+        }
+        let curSeg[remainingSize] = size;
+        return curSeg + remainingSize + 1;
     }
 
     /** De-allocates the given object and frees its space. */
     function void deAlloc(int object) {
+        var Array curSeg;
+        var Array prevSeg;
+        var Array allocSeg;
+        var int space;
+
+        // Walk the free list looking for the first segment 
+        // that ends before the allocated segment starts.
+        let allocSeg = object - 1;
+        let allocSeg[1] = 0;
+        let curSeg = freeSegs;
+        let prevSeg = 0;
+        while (~((curSeg = 0) | (allocSeg < (curSeg + curSeg[0])))) {
+            let prevSeg = curSeg;
+            let curSeg = curSeg[1];
+        }
+        if (~(prevSeg = 0)) {
+            // Merge or link with previous segment
+            let space = allocSeg - (prevSeg + prevSeg[0]);
+            if (space < 2) {
+                // Merge
+                let prevSeg[0] = prevSeg[0] + allocSeg[0];
+                if (space = 1) {
+                    // A single block was dropped from the free segment list
+                    // after the alloc. See Memory.Alloc for when this happens.
+                    let prevSeg[0] = prevSeg[0] + 1;
+                }
+                let allocSeg = prevSeg;
+            } else {
+                // Link 
+                let prevSeg[1] = allocSeg;
+            }
+        } else {
+            // New list head
+            let freeSegs = allocSeg;
+            if (freeSegs = 2047) {
+                // First block was unallocated.
+                let freeSegs = freeSegs - 1;
+            }
+            let allocSeg = freeSegs;
+        }
+        if (~(curSeg = 0)) {
+            // Merge or link with next segment
+            let space = curSeg - (allocSeg + allocSeg[0]);
+            if (space < 2) {
+                // Merge
+                let allocSeg[0] = allocSeg[0] + curSeg[0];
+                if (space = 1) {
+                    // A single block was dropped from the free segment list
+                    // after the alloc. See Memory.Alloc for when this happens.
+                    let allocSeg[0] = allocSeg[0] + 1;
+                }
+                // link to next seg
+                let allocSeg[1] = curSeg[1];
+            } else {
+                // Link 
+                let allocSeg[1] = curSeg;
+            }
+        }
+        return;
     }    
 }

@@ -1,38 +1,128 @@
-// This file is part of www.nand2tetris.org
-// and the book "The Elements of Computing Systems"
-// by Nisan and Schocken, MIT Press.
-// File name: projects/12/Math.jack
-
 /**
  * A basic math library.
  */
 class Math {
+    static Array divRes;
+    static Array bitMasks;
+    static Array twoN;
+    static Array twoNSq;
 
     /** Initializes the library. */
     function void init() {
+        var int i;
+        var int mask;
+
+        let divRes = Array.new(2);
+        let bitMasks = Array.new(16);
+        let mask = 1;
+        let i = 0;
+        while (i < 16) {
+            let bitMasks[i] = mask;
+            let mask = mask + mask;
+            let i = i + 1;
+        }
+        let twoN = Array.new(16);
+        let twoNSq = Array.new(16);
+        return;
     }
 
     /** Returns the absolute value of x. */
     function int abs(int x) {
+        if (x < 0) {
+            return -x;
+        } else {
+            return x;
+        }
+    }
+
+    function int bitAt(int x, int pos) {
+        return (bitMasks[pos] & x);
     }
 
     /** Returns the product of x and y. */
     function int multiply(int x, int y) {
+        var int res;
+        var int i;
+
+        let res = 0;
+        let i = 0;
+        while (i < 16) {
+            if (Math.bitAt(y, i)) {
+                let res = res + x;
+            }
+            let x = x + x;
+            let i = i + 1;
+        }
+        return res;
     }
 
     /** Returns the integer part of x/y. */
     function int divide(int x, int y) {
+        if (y = 0) {
+            do Sys.error(1);
+        }
+        do Math._divide(Math.abs(x), Math.abs(y));
+        if (((x > 0) & (y > 0)) | ((x < 0) & (y < 0))) {
+            return divRes[0];
+        } else {
+            return -divRes[0];
+        }
+    }
+
+    function void _divide(int x, int y) {
+        if ((x < y) | (y < 0)) {
+            let divRes[0] = 0;
+            let divRes[1] = 0;
+            return;
+        } else {
+            if (~(y > x)) {
+                do Math._divide(x, y + y);
+            }
+            let divRes[0] = divRes[0] + divRes[0];
+            if (~((x - divRes[1]) < y)) {
+                let divRes[0] = divRes[0] + 1;
+                let divRes[1] = divRes[1] + y;
+            }
+            return;
+        }
     }
 
     /** Returns the integer part of the square root of x. */
     function int sqrt(int x) {
+        var int i;
+        var int t;
+        var int y;
+
+        if (x < 0) {
+            do Sys.error(2);
+        }
+        let y = 0;
+        let i = 15;
+        while (~(i < 0)) {
+            let t = (y + bitMasks[i]) * (y + bitMasks[i]);
+            if (~(t > x) & (t > 0)) {
+                let y = y + bitMasks[i];
+            }
+            let i = i - 1;
+        }
+        return y;
     }
 
     /** Returns the greater number. */
     function int max(int a, int b) {
+        if (a > b) {
+            return a;
+        } else {
+            return b;
+        }
     }
 
     /** Returns the smaller number. */
     function int min(int a, int b) {
+        if (a < b) {
+            return a;
+        } else {
+            return b;
+        }
     }
 }

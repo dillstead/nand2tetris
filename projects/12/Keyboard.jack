@@ -1,8 +1,3 @@
-// This file is part of www.nand2tetris.org
-// and the book "The Elements of Computing Systems"
-// by Nisan and Schocken, MIT Press.
-// File name: projects/12/Keyboard.jack
-
 /**
  * A library for handling user input from the keyboard.
  */
@@ -10,6 +5,7 @@ class Keyboard {
 
     /** Initializes the keyboard. */
     function void init() {
+        return;
     } 
 
     /**
@@ -33,6 +29,7 @@ class Keyboard {
      * F1 - F12 = 141 - 152
      */
     function char keyPressed() {
+        return Memory.peek(24576);
     }
 
     /**								
@@ -41,6 +38,16 @@ class Keyboard {
      * the key to the screen, and returns the value of the pressed key.
      */
     function char readChar() {
+        var char c;
+
+        let c = Keyboard.keyPressed();
+        while (c = 0) {
+            let c = Keyboard.keyPressed();
+        }
+        while (~(Keyboard.keyPressed() = 0)) {
+        }
+        do Output.printChar(c);
+        return c;
     }
 
     /**								
@@ -48,6 +55,23 @@ class Keyboard {
      * (until a newline character) from the keyboard, and returns its value.
      */
     function String readLine(String message) {
+        var String line;
+        var char c;
+
+        let line = String.new(80);
+        do Output.printString(message);
+        let c = Keyboard.readChar();
+        while (~(c = String.newLine())) {
+            if (c = String.backSpace()) {
+                do Output.backSpace();
+                do line.eraseLastChar();
+
+            } else {
+                do line.appendChar(c);
+            }
+        }
+        do Output.println();
+        return line;
     }   
 
     /**								
@@ -56,5 +80,12 @@ class Keyboard {
      * integer value (until the first non numeric character).
      */
     function int readInt(String message) {
+        var String line;
+        var int ret;
+        
+        let line = Keybord.readLine(message);
+        let ret = line.intValue();
+        do line.dispose();
+        return ret;
     }
 }
